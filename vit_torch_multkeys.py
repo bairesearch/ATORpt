@@ -27,14 +27,20 @@ from torchvision.transforms import ToTensor
 
 import torch.nn.functional as F
 
+torch.set_printoptions(profile="full")
+
 np.random.seed(0)
 torch.manual_seed(0)
 
 useGeometricHashingLayer = True #current
 if(useGeometricHashingLayer):
     numberOfGeometricDimensions = 2    #2D object data (2DOD)
-activationMaxVal = 1e+9
 useMultKeys = False   #legacy
+
+activationMaxVal = 10.0
+multiplicativeEmulationFunctionPreMaxVal = 1e+9
+multiplicativeEmulationFunctionPostMaxVal = 20.0
+
 
 def getInputLayerNumTokens(n_patches):
     inputLayerNumTokens = n_patches ** 2
@@ -84,8 +90,9 @@ class LayerAdditiveMultiplicative(nn.Module):
         x = input
         if(self.useMultiplicativeUnits):
             AprevLayerA = x
+            AprevLayerA = self.clipActivation(AprevLayerA)
             #print("AprevLayerA = ", AprevLayerA)
-            AprevLayerM = self.multiplactiveEmulationFunctionPre(AprevLayerA)
+            AprevLayerM = self.multiplicativeEmulationFunctionPre(AprevLayerA)
             #print("AprevLayerM = ", AprevLayerM)
             #print("self.Wa = ", self.Wa)
             #print("self.Wm = ", self.Wm)
@@ -93,7 +100,7 @@ class LayerAdditiveMultiplicative(nn.Module):
             Zm = AprevLayerM @ self.Wm
             #print("Za = ", Za)
             #print("Zm = ", Zm)
-            Zm = self.multiplactiveEmulationFunctionPost(Zm)
+            Zm = self.multiplicativeEmulationFunctionPost(Zm)
             #print("Zm = ", Zm)
             if(self.useBias):
                 Za = Za + self.Ba
@@ -101,27 +108,34 @@ class LayerAdditiveMultiplicative(nn.Module):
  
             Aa = self.activationFunction(Za)
             Am = self.activationFunction(Zm)
-            #print("Za = ", Za)
-            #print("Zm = ", Zm)
+            #print("Aa = ", Aa)
+            #print("Am = ", Am)
             Z = torch.cat([Za, Zm], dim=1)
             A = torch.cat([Aa, Am], dim=1)
             output = A
             #print("Z = ", Z)
             #print("A = ", A)
+            if(torch.isnan(A).any()):
+                print("torch.isnan(A).any()")
+                ex
         else:
             output = input @ self.W
             if(self.useBias):
                 output = output + self.B
         return output
 
-    def multiplactiveEmulationFunctionPre(self, AprevLayer):
-        AprevLayer = torch.clip(AprevLayer, 1e-9, activationMaxVal)	
+    def clipActivation(self, A):
+        A = torch.clip(A, -activationMaxVal, activationMaxVal)	
+        return A
+
+    def multiplicativeEmulationFunctionPre(self, AprevLayer):
+        AprevLayer = torch.clip(AprevLayer, 1e-9, multiplicativeEmulationFunctionPreMaxVal)	
         AprevLayerM = torch.log(AprevLayer)
         return AprevLayerM
         
-    def multiplactiveEmulationFunctionPost(self, ZmIntermediary):
+    def multiplicativeEmulationFunctionPost(self, ZmIntermediary):
+        ZmIntermediary = torch.clip(ZmIntermediary, -multiplicativeEmulationFunctionPostMaxVal, multiplicativeEmulationFunctionPostMaxVal)
         Zm = torch.exp(ZmIntermediary)
-        Zm = torch.clip(Zm, 0.0, activationMaxVal)
         return Zm
 
 #@title
@@ -403,32 +417,31 @@ class ViTClass(nn.Module):
         # Dividing images into patches
         n, c, w, h = images.shape
         patches = patchify(images, self.n_patches)
-        #print("patches.shape = ", patches.shape)
+        #print("patches.shape = ", patches)
 
         # Running linear layer for tokenization
         tokens = self.linear_mapper(patches)
-        #print("1 tokens.shape = ", tokens.shape)
+        #print("1 tokens.shape = ", tokens)
 
         # Adding classification token to the tokens
         tokens = torch.stack([torch.vstack((self.class_token, tokens[i])) for i in range(len(tokens))])
-        #print("2 tokens.shape = ", tokens.shape)
+        #print("2 tokens.shape = ", tokens)
 
         # Running Layer Normalization
         tokens = self.ln1(tokens)
-        #print("3 tokens.shape = ", tokens.shape)
+        #print("3 tokens.shape = ", tokens)
 
         # Adding positional embedding
         if(useGeometricHashingLayer):
             posEmbeddingsAbsolute = getPositionalEmbeddingsAbsolute(self.n_patches).repeat(n, 1, 1).to(self.device)
-            #print("3 posEmbeddingsAbsolute.shape = ", posEmbeddingsAbsolute.shape)
+            #print("3 posEmbeddingsAbsolute.shape = ", posEmbeddingsAbsolute)
 
             # Running MSAGeometricHashing and residual connection (baxterai)
             posEmbeddingsAbsoluteGeoNormalised = self.msaGeometricHashing(tokens, posEmbeddingsAbsolute)
-            #print("posEmbeddingsAbsoluteGeoNormalised.shape = ", posEmbeddingsAbsoluteGeoNormalised.shape)
-            #print("posEmbeddingsAbsoluteGeoNormalised = ", posEmbeddingsAbsoluteGeoNormalised)
+            #print("posEmbeddingsAbsoluteGeoNormalised.shape = ", posEmbeddingsAbsoluteGeoNormalised)
  
             tokensAndPosEmbeddings = torch.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
-            #print("tokensAndPosEmbeddings.shape = ", tokensAndPosEmbeddings.shape)
+            #print("tokensAndPosEmbeddings.shape = ", tokensAndPosEmbeddings)
             tokens = tokensAndPosEmbeddings
         else:
             posEmbeddings = get_positional_embeddings(self.n_patches ** 2 + 1, self.hidden_d).repeat(n, 1, 1).to(self.device)
@@ -443,16 +456,16 @@ class ViTClass(nn.Module):
         # Running MSA and residual connection
         #print("tokens.shape = ", tokens.shape)
         out = tokens + self.msa(tokens)
-        #print("1 out.shape = ", out.shape)
+        #print("1 out.shape = ", out)
 
         # Running Layer Normalization, MLP and residual connection
         out = out + self.enc_mlp(self.ln2(out))
-        #print("2 out.shape = ", out.shape)
+        #print("2 out.shape = ", out)
         # TRANSFORMER ENCODER ENDS   ###################################
 
         # Getting the classification token only
         out = out[:, 0]
-        #print("3 out.shape = ", out.shape)
+        #print("3 out.shape = ", out)
 
         return self.mlp(out)
 
@@ -465,7 +478,7 @@ def main():
     train_set = MNIST(root='./../datasets', train=True, download=True, transform=transform)
     test_set = MNIST(root='./../datasets', train=False, download=True, transform=transform)
 
-    batch_size = 16
+    batch_size = 16 #debug: 2
     input_shape = (1, 28, 28)   #MNIST defined
     out_d = 10     #MNIST defined
 
