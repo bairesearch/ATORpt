@@ -34,6 +34,8 @@ torch.manual_seed(0)
 
 useGeometricHashingLayer = True #current
 if(useGeometricHashingLayer):
+    useGeometricHashingLayerSoftMax = True  #for backprop   #else use topk
+    useGeometricHashingLayerKeypointNormalisation = True
     numberOfGeometricDimensions = 2    #2D object data (2DOD)
 useMultKeys = False   #legacy
 
@@ -94,8 +96,8 @@ class LayerAdditiveMultiplicative(nn.Module):
             AprevLayerA = x
             AprevLayerA = self.clipActivation(AprevLayerA)
             AprevLayerM = self.multiplicativeEmulationFunctionPre(AprevLayerA)
-            #print("self.Wa = ", self.Wa)
-            #print("self.Wm = ", self.Wm)
+            #print("self.Wa.shape = ", self.Wa.shape)
+            #print("self.Wm.shape = ", self.Wm.shape)
             Za = AprevLayerA @ self.Wa
             Zm = AprevLayerM @ self.Wm
             Zm = self.multiplicativeEmulationFunctionPost(Zm)
@@ -136,7 +138,7 @@ class LayerAdditiveMultiplicative(nn.Module):
 #@title  { form-width: "5%" }
 
 class MSAgeometricHashingClass(nn.Module):
-    def __init__(self, d, n_heads=2):
+    def __init__(self, d, n_patches, n_heads=2):
         super(MSAgeometricHashingClass, self).__init__()
         self.d = d
         self.n_heads = n_heads
@@ -148,13 +150,20 @@ class MSAgeometricHashingClass(nn.Module):
         self.k_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
         self.v_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
         self.d_head = d_head
+        self.softmax = nn.Softmax(dim=-1)
 
         self.numberOfGeometricDimensions = numberOfGeometricDimensions    #2D object data (2DOD)
         self.geometricHashingNumKeypoints = self.numberOfGeometricDimensions+1    #2DOD: 3: 3DOD: 4   #number of features to use to perform geometric hashing (depends on input object data dimensions; 2DOD/3DOD)
         self.geometricHashingNumberLayers = self.geometricHashingNumKeypoints #number of consecutive transformations required to be encoded/learnt by MSAgeomtricHashing
         self.geometricHashingNumPixels = 1  #1 pixel (token) will be transformed
-        self.geometricHashingNumInputs = self.geometricHashingNumKeypoints+self.geometricHashingNumPixels
-        self.geometricHashingInputDim = (self.geometricHashingNumInputs * self.numberOfGeometricDimensions)
+        if(useGeometricHashingLayerSoftMax):
+            hiddenLayerNumTokens = getHiddenLayerNumTokens(n_patches)
+            self.numberOfAttentionDimensions = 1
+            self.geometricHashingNumInputs = hiddenLayerNumTokens + 1
+            self.geometricHashingInputDim = (hiddenLayerNumTokens*(self.numberOfGeometricDimensions+self.numberOfAttentionDimensions)) + (self.geometricHashingNumPixels*self.numberOfGeometricDimensions)
+        else:
+            self.geometricHashingNumInputs = self.geometricHashingNumKeypoints+self.geometricHashingNumPixels
+            self.geometricHashingInputDim = geometricHashingNumInputs * self.numberOfGeometricDimensions
         
         linearAdditiveMultiplicativeList = []
         for i in range(self.geometricHashingNumberLayers):
@@ -199,18 +208,35 @@ class MSAgeometricHashingClass(nn.Module):
 
             dots = torch.multiply(dotsLuminosity, dotsProximity)
 
-            keypoints = torch.topk(dots, k=self.geometricHashingNumKeypoints, dim=1)
-            keypointsIndices = keypoints.indices
-            keypointsValues = keypoints.values
+            posEmbeddingsNormalised = normaliseInputs0to1(posEmbeddings)
 
-            keypointsIndicesFlattened = torch.reshape(keypointsIndices, (keypointsIndices.shape[0]*keypointsIndices.shape[1],))  #or flatten    #keypointsIndicesFlattened = keypointsIndices.flatten()
-            keypointsPosEmbeddingsFlattened = posEmbeddings[keypointsIndicesFlattened]
-            keypointsPosEmbeddings = torch.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
+            if(useGeometricHashingLayerSoftMax):
+                attention = self.softmax(dots / (self.d_head ** 0.5))   #or self.softmax(dots) 
+                attention = torch.unsqueeze(attention, dim=2)
+                #attention = normaliseInputs0to1(attention)  #optional
 
-            geometricHashingPixelPosEmbeddings = posEmbeddings
-            geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings.flatten(start_dim=1, end_dim=2)
+                posEmbeddingsRepeat = posEmbeddingsNormalised
+                posEmbeddingsRepeat = torch.unsqueeze(posEmbeddingsRepeat, dim=1)
+                numRep = posEmbeddingsRepeat.shape[0]
+                posEmbeddingsRepeat = posEmbeddingsRepeat.repeat(1, posEmbeddingsRepeat.shape[0], 1)   
+
+                geometricHashingKeypointsPosEmbeddings = torch.cat([posEmbeddingsRepeat, attention], dim=2)
+
+            else:
+                keypoints = torch.topk(dots, k=self.geometricHashingNumKeypoints, dim=1)
+                keypointsIndices = keypoints.indices
+                keypointsValues = keypoints.values
+
+                keypointsIndicesFlattened = torch.reshape(keypointsIndices, (keypointsIndices.shape[0]*keypointsIndices.shape[1],))  #or flatten    #keypointsIndicesFlattened = keypointsIndices.flatten()
+                keypointsPosEmbeddingsFlattened = posEmbeddingsNormalised[keypointsIndicesFlattened]
+                keypointsPosEmbeddings = torch.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
+                geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings
+       
+            geometricHashingKeypointsPosEmbeddings = geometricHashingKeypointsPosEmbeddings.flatten(start_dim=1, end_dim=2)
+
+            geometricHashingPixelPosEmbeddings = posEmbeddingsNormalised
             geometricHashingInputs = torch.cat([geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings], dim=1)
-            geometricHashingInputs = normaliseInputs0to1(geometricHashingInputs)
+            
             geometricHashingLayer = geometricHashingInputs
             for i, l in enumerate(self.linearAdditiveMultiplicativeModuleList):
                 geometricHashingLayer = l(geometricHashingLayer)
@@ -225,8 +251,13 @@ class MSAgeometricHashingClass(nn.Module):
         return posEmbeddingsGeometricNormalised
      
 def normaliseInputs0to1(A):
-    A -= A.min(1, keepdim=True)[0]
-    A /= A.max(1, keepdim=True)[0]
+    if(useGeometricHashingLayerKeypointNormalisation):
+        Amin = torch.min(A)    #A.min(1, keepdim=True)[0]
+        #print("Amin = ", Amin)
+        A -= Amin
+        Amax = torch.max(A)    #A.max(1, keepdim=True)[0] 
+        #print("Amax = ", Amax)
+        A /= Amax          
     return A
 
 def getPositionalEmbeddingsAbsolute(n_patches):
@@ -353,7 +384,7 @@ class ViTClass(nn.Module):
 
         if(useGeometricHashingLayer):
             #Multi-head Self Attention Gemetric Hashing (MSAGemetricHashing)
-            self.msaGeometricHashing = MSAgeometricHashingClass(self.hidden_dPreHashing, n_heads)
+            self.msaGeometricHashing = MSAgeometricHashingClass(self.hidden_dPreHashing, n_patches, n_heads)
 
         # 4b) Multi-head Self Attention (MSA) and classification token
         self.msa = MSAClass(self.hidden_d, n_heads)
