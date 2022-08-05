@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1nR579YNHDniJVxpU77_JKTu_uTKTib68
 """
 
-#@title
+#@title  { form-width: "5%" }
 
 #orig: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
@@ -38,7 +38,9 @@ if(useGeometricHashingLayer):
 useMultKeys = False   #legacy
 
 activationMaxVal = 10.0
-multiplicativeEmulationFunctionPreMaxVal = 1e+9
+multiplicativeEmulationFunctionOffsetVal = 1.0	#add/subtract
+multiplicativeEmulationFunctionPreMinVal = 1e-9
+multiplicativeEmulationFunctionPreMaxVal = 1e+9	#or activationMaxVal (effective)
 multiplicativeEmulationFunctionPostMaxVal = 20.0
 
 
@@ -58,7 +60,7 @@ def getPatchSize(input_shape, n_patches):
     patch_size = (input_shape[1] / n_patches, input_shape[2] / n_patches)
     return patch_size
 
-#@title
+#@title  { form-width: "5%" }
 
 class LayerAdditiveMultiplicative(nn.Module):
     def __init__(self, inputFeatures, outputFeatures, useBias=False, useMultiplicativeUnits=True):
@@ -91,30 +93,21 @@ class LayerAdditiveMultiplicative(nn.Module):
         if(self.useMultiplicativeUnits):
             AprevLayerA = x
             AprevLayerA = self.clipActivation(AprevLayerA)
-            #print("AprevLayerA = ", AprevLayerA)
             AprevLayerM = self.multiplicativeEmulationFunctionPre(AprevLayerA)
-            #print("AprevLayerM = ", AprevLayerM)
             #print("self.Wa = ", self.Wa)
             #print("self.Wm = ", self.Wm)
             Za = AprevLayerA @ self.Wa
             Zm = AprevLayerM @ self.Wm
-            #print("Za = ", Za)
-            #print("Zm = ", Zm)
             Zm = self.multiplicativeEmulationFunctionPost(Zm)
-            #print("Zm = ", Zm)
             if(self.useBias):
                 Za = Za + self.Ba
                 Zm = Zm + self.Bm
  
             Aa = self.activationFunction(Za)
             Am = self.activationFunction(Zm)
-            #print("Aa = ", Aa)
-            #print("Am = ", Am)
             Z = torch.cat([Za, Zm], dim=1)
             A = torch.cat([Aa, Am], dim=1)
             output = A
-            #print("Z = ", Z)
-            #print("A = ", A)
             if(torch.isnan(A).any()):
                 print("torch.isnan(A).any()")
                 ex
@@ -129,16 +122,18 @@ class LayerAdditiveMultiplicative(nn.Module):
         return A
 
     def multiplicativeEmulationFunctionPre(self, AprevLayer):
-        AprevLayer = torch.clip(AprevLayer, 1e-9, multiplicativeEmulationFunctionPreMaxVal)	
+        AprevLayer = AprevLayer + multiplicativeEmulationFunctionOffsetVal
+        AprevLayer = torch.clip(AprevLayer, multiplicativeEmulationFunctionPreMinVal, multiplicativeEmulationFunctionPreMaxVal)	
         AprevLayerM = torch.log(AprevLayer)
         return AprevLayerM
         
     def multiplicativeEmulationFunctionPost(self, ZmIntermediary):
         ZmIntermediary = torch.clip(ZmIntermediary, -multiplicativeEmulationFunctionPostMaxVal, multiplicativeEmulationFunctionPostMaxVal)
         Zm = torch.exp(ZmIntermediary)
+        Zm = Zm - multiplicativeEmulationFunctionOffsetVal
         return Zm
 
-#@title
+#@title  { form-width: "5%" }
 
 class MSAgeometricHashingClass(nn.Module):
     def __init__(self, d, n_heads=2):
@@ -192,66 +187,40 @@ class MSAgeometricHashingClass(nn.Module):
             seq = sequenceN  #n_heads = 1
             posEmbeddings = posEmbeddingsN #n_heads = 1
             
-
-            #print("seq.shape = ", seq.shape)
             q, k, v = q_mapping(seq), k_mapping(seq), v_mapping(seq)
-            #print("q.shape = ", q.shape)
-            #print("k.shape = ", k.shape)
-            #print("v.shape = ", v.shape)
             
             dotsLuminosity = q @ k.T
-            #print("dotsLuminosity.shape = ", dotsLuminosity.shape)
-
-            #print("posEmbeddings.shape = ", posEmbeddings.shape)
+   
             #https://stackoverflow.com/questions/29063851/how-to-parallelized-scipy-cosine-similarity-calculation
             posEmbeddings1 = posEmbeddings/torch.linalg.norm(posEmbeddings, axis=1)[:,None]
             posEmbeddings1 = torch.nan_to_num(posEmbeddings1, nan=0.0)  #CHECKTHIS; nan=0.0
-            #print("posEmbeddings1 = ", posEmbeddings1)
-            dotsProximity = torch.einsum('ik,jk->ij', posEmbeddings1, posEmbeddings1)
-            #print("dotsProximity = ", dotsProximity)
-            #print("dotsProximity.shape = ", dotsProximity.shape)
 
-            #print("dotsProximity.shape = ", dotsProximity.shape)
+            dotsProximity = torch.einsum('ik,jk->ij', posEmbeddings1, posEmbeddings1)
+
             dots = torch.multiply(dotsLuminosity, dotsProximity)
-            #print("dots.shape = ", dots.shape)
 
             keypoints = torch.topk(dots, k=self.geometricHashingNumKeypoints, dim=1)
-            #print("keypoints = ", keypoints)
             keypointsIndices = keypoints.indices
-            #print("keypointsIndices.shape = ", keypointsIndices.shape)
             keypointsValues = keypoints.values
-            #print("keypointsValues.shape = ", keypointsValues.shape)
 
             keypointsIndicesFlattened = torch.reshape(keypointsIndices, (keypointsIndices.shape[0]*keypointsIndices.shape[1],))  #or flatten    #keypointsIndicesFlattened = keypointsIndices.flatten()
-            #print("keypointsIndicesFlattened.shape = ", keypointsIndicesFlattened.shape)
             keypointsPosEmbeddingsFlattened = posEmbeddings[keypointsIndicesFlattened]
-            #print("keypointsPosEmbeddingsFlattened.shape = ", keypointsPosEmbeddingsFlattened.shape)
             keypointsPosEmbeddings = torch.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
-            #print("keypointsPosEmbeddings.shape = ", keypointsPosEmbeddings.shape)
 
-            #print("posEmbeddings.shape = ", posEmbeddings.shape)
             geometricHashingPixelPosEmbeddings = posEmbeddings
-            #print("geometricHashingPixelPosEmbeddings.shape = ", geometricHashingPixelPosEmbeddings.shape)
-            #print("keypointsPosEmbeddings.shape = ", keypointsPosEmbeddings.shape)
             geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings.flatten(start_dim=1, end_dim=2)
-            #print("geometricHashingKeypointsPosEmbeddings.shape = ", geometricHashingKeypointsPosEmbeddings.shape)
             geometricHashingInputs = torch.cat([geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings], dim=1)
-            #print("geometricHashingInputs = ", geometricHashingInputs)
             geometricHashingInputs = normaliseInputs0to1(geometricHashingInputs)
-            #print("geometricHashingInputs = ", geometricHashingInputs)
             geometricHashingLayer = geometricHashingInputs
             for i, l in enumerate(self.linearAdditiveMultiplicativeModuleList):
                 geometricHashingLayer = l(geometricHashingLayer)
                 #print("geometricHashingLayer = ", geometricHashingLayer)
             geometricHashingOutput = geometricHashingLayer
-            #print("geometricHashingOutput = ", geometricHashingOutput)
             posEmbeddingsAbsoluteGeoNormalisedN = geometricHashingOutput
 
-            #print("posEmbeddingsAbsoluteGeoNormalisedN = ", posEmbeddingsAbsoluteGeoNormalisedN)
             posEmbeddingsGeometricNormalisedList.append(posEmbeddingsAbsoluteGeoNormalisedN)
 
         posEmbeddingsGeometricNormalised = torch.stack(posEmbeddingsGeometricNormalisedList, dim=0) 
-        #print("posEmbeddingsGeometricNormalised = ", posEmbeddingsGeometricNormalised)
 
         return posEmbeddingsGeometricNormalised
      
@@ -262,20 +231,17 @@ def normaliseInputs0to1(A):
 
 def getPositionalEmbeddingsAbsolute(n_patches):
     #see patchify specification; patches[idx, i * n_patches + j]
-    #print("n_patches = ", n_patches)
     posEmbeddingsAbsolute = torch.zeros(getInputLayerNumTokens(n_patches), 2)  #pos embeddings absolute include x/y dim only
     posEmbeddingsAbsolute[:, 0] = torch.unsqueeze(torch.arange(0, n_patches),1).repeat(1, n_patches).flatten()
     posEmbeddingsAbsolute[:, 1] = torch.arange(0, n_patches).repeat(n_patches)
    
     #CHECKTHIS add positional embedding for classification token (0, 0)
     posEmbeddingClassificationToken = torch.unsqueeze(torch.zeros(2), 0)
-    #print("posEmbeddingClassificationToken = ", posEmbeddingClassificationToken)
     posEmbeddingsAbsolute = torch.cat([posEmbeddingClassificationToken, posEmbeddingsAbsolute], dim=0)
-    #print("posEmbeddingsAbsolute = ", posEmbeddingsAbsolute)
 
     return posEmbeddingsAbsolute
 
-#@title
+#@title  { form-width: "5%" }
 class MSAClass(nn.Module):
     def __init__(self, d, n_heads=2):
         super(MSAClass, self).__init__()
@@ -304,11 +270,7 @@ class MSAClass(nn.Module):
                 v_mapping = self.v_mappings[head]
 
                 seq = sequence[:, head * self.d_head: (head + 1) * self.d_head]
-                #print("seq.shape = ", seq.shape)
                 q, k, v = q_mapping(seq), k_mapping(seq), v_mapping(seq)
-                #print("q.shape = ", q.shape)
-                #print("k.shape = ", k.shape)
-                #print("v.shape = ", v.shape)
 
                 if(useMultKeys):
                     print("k.shape = ", k.shape)
@@ -319,10 +281,8 @@ class MSAClass(nn.Module):
                     print("dots.shape = ", dots.shape)
                 else:          
                     dots = q @ k.T
-                    #print("dots.shape = ", dots.shape)
 
                 attention = self.softmax(dots / (self.d_head ** 0.5))
-                #print("attention.shape = ", attention.shape)
                 seq_result.append(attention @ v)
             result.append(torch.hstack(seq_result))
         return torch.cat([torch.unsqueeze(r, dim=0) for r in result])
@@ -334,7 +294,7 @@ def get_positional_embeddings(sequence_length, d):
             result[i][j] = np.sin(i / (10000 ** (j / d))) if j % 2 == 0 else np.cos(i / (10000 ** ((j - 1) / d)))
     return result
 
-#@title
+#@title  { form-width: "5%" }
 
 def patchify(images, n_patches):
     n, c, h, w = images.shape
@@ -469,7 +429,7 @@ class ViTClass(nn.Module):
 
         return self.mlp(out)
 
-#@title
+#@title  { form-width: "5%" }
 
 def main():
     # Loading data
@@ -513,8 +473,6 @@ def main():
             x, y = x.to(device), y.to(device)
             y_hat = model(x)
             
-            #prematureExit
-
             loss = criterion(y_hat, y) / len(x)
 
             train_loss += loss.detach().cpu().item()
