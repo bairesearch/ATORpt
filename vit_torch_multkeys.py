@@ -7,11 +7,8 @@ Original file is located at
     https://colab.research.google.com/drive/1nR579YNHDniJVxpU77_JKTu_uTKTib68
 """
 
-#@title  { form-width: "5%" }
+#@title globalDefs { form-width: "5%" }
 
-#orig: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
-
-import matplotlib.pyplot as plt
 import numpy as np
 
 from tqdm import tqdm
@@ -24,6 +21,7 @@ from torch.utils.data import DataLoader
 
 from torchvision.datasets.mnist import MNIST
 from torchvision.transforms import ToTensor
+import torchvision.transforms as T
 
 import torch.nn.functional as F
 
@@ -31,29 +29,36 @@ torch.set_printoptions(profile="full")
 
 torch.autograd.set_detect_anomaly(True)
 
-#np.random.seed(0)
-#torch.manual_seed(0)
 
-useGeometricHashingLayer = True #current
-if(useGeometricHashingLayer):
-    useGeometricHashingLayerProbabilisticKeypoints = True   #for backprop   #else use topk
-    if(useGeometricHashingLayerProbabilisticKeypoints):
-        useGeometricHashingLayerProbabilisticKeypointsSoftMax = False
-        useGeometricHashingLayerProbabilisticKeypointsNonlinearity = True
-        if(useGeometricHashingLayerProbabilisticKeypointsNonlinearity):
-            if(useGeometricHashingLayerProbabilisticKeypointsSoftMax):
-                useGeometricHashingLayerProbabilisticKeypointsNonlinearityOffset = 0.022    #input Z is normalised between 0 and 1 #calibrate
+useGeometricHashing = True #current #mandatory
+if(useGeometricHashing):
+    useGeometricHashingProbabilisticKeypoints = False   #for backprop   #else use topk  #optional
+    useGeometricHashingCNNfeatureDetector = False   #else use key k #optional
+    useGeometricHashingPixels = False    #else perform hashing via patches  #optional
+    if(useGeometricHashingCNNfeatureDetector):
+        useGeometricHashingPixels = True    #currently mandatory (because W/H dim are required by CNN)
+    if(useGeometricHashingProbabilisticKeypoints):
+        useGeometricHashingAMANN = True #mandatory  #else use hardcoded geohashing function
+        useGeometricHashingProbabilisticKeypointsSoftMax = False
+        useGeometricHashingProbabilisticKeypointsNonlinearity = True
+        if(useGeometricHashingProbabilisticKeypointsNonlinearity):
+            if(useGeometricHashingProbabilisticKeypointsSoftMax):
+                useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 0.022    #input Z is normalised between 0 and 1 #calibrate
             else:
-                useGeometricHashingLayerProbabilisticKeypointsNonlinearityOffset = 1.0  #calibrate
-        useGeometricHashingLayerProbabilisticKeypointsZero = True    #zero all keypoints below attention threshold  #CHECKTHIS: affects backprop 
-        useGeometricHashingLayerNormaliseOutput = True    #normalise geometric hashed positional embeddings output from 0 to 1
-        useGeometricHashingLayerReduceInputMagnitude = False
+                useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 1.0  #calibrate
+        useGeometricHashingProbabilisticKeypointsZero = True    #zero all keypoints below attention threshold  #CHECKTHIS: affects backprop 
+        if(useGeometricHashingAMANN):
+            useGeometricHashingNormaliseOutput = True    #normalise geometric hashed positional embeddings output from 0 to 1
+            useGeometricHashingReduceInputMagnitude = False
     else:
-        useGeometricHashingLayerNormaliseOutput = True
-        useGeometricHashingLayerReduceInputMagnitude = False #reduce average magnitude of positional embedding input
-    useGeometricHashingLayerKeypointNormalisation = True
+        useGeometricHashingAMANN = True #mandatory  #else use hardcoded geohashing function
+        if(useGeometricHashingAMANN):
+            useGeometricHashingNormaliseOutput = True
+            useGeometricHashingReduceInputMagnitude = False #reduce average magnitude of positional embedding input
+    useGeometricHashingKeypointNormalisation = True
     numberOfGeometricDimensions = 2    #2D object data (2DOD)
-useMultKeys = False   #legacy
+
+#useMultKeys = False   #legacy
 
 activationMaxVal = 10.0
 multiplicativeEmulationFunctionOffsetVal = 1.0	#add/subtract
@@ -61,26 +66,92 @@ multiplicativeEmulationFunctionPreMinVal = 1e-9
 multiplicativeEmulationFunctionPreMaxVal = 1e+9	#or activationMaxVal (effective)
 multiplicativeEmulationFunctionPostMaxVal = 20.0
 
+#@title operations { form-width: "5%" }
 
-def getInputLayerNumTokens(n_patches):
-    inputLayerNumTokens = n_patches ** 2
+def getInputLayerNumTokens(numberOfPatches):
+    inputLayerNumTokens = int(numberOfPatches ** 2)
     return inputLayerNumTokens
 
-def getHiddenLayerNumTokens(n_patches):
-    hiddenLayerNumTokens = n_patches ** 2 + 1
-    return hiddenLayerNumTokens
+def getInputDim(inputShape, patchSize):
+    c = inputShape[0]
+    numberOfInputDimensions = int(c * getPatchSizeFlat2(patchSize))
+    return numberOfInputDimensions
 
-def getInputDim(input_shape, patch_size):
-    input_d = int(input_shape[0] * patch_size[0] * patch_size[1])
-    return input_d
+def getPatchSize(inputShape, numberOfPatches):
+    patchSize = (inputShape[1]//numberOfPatches, inputShape[2]//numberOfPatches)
+    return patchSize
 
-def getPatchSize(input_shape, n_patches):
-    patch_size = (input_shape[1] / n_patches, input_shape[2] / n_patches)
-    return patch_size
+def getPatchLength(inputShape, numberOfPatches):
+    (c, h, w) = inputShape
+    patchLength = h // numberOfPatches
+    return patchLength
 
-#@title  { form-width: "5%" }
+def getPatchSizeFlat(inputShape, numberOfPatches):
+    patchSize = getPatchSize(inputShape, numberOfPatches)
+    patchSizeFlat = getPatchSizeFlat2(patchSize)
+    return patchSizeFlat
 
-class LayerAdditiveMultiplicative(nn.Module):
+def getPatchSizeFlat2(patchSize):
+    patchSizeFlat = patchSize[0]*patchSize[1]
+    return patchSizeFlat
+
+def normaliseInputs0to1(A):
+    if(useGeometricHashingKeypointNormalisation):
+        A = F.normalize(A)    
+    return A
+
+def getPositionalEmbeddingsAbsolute(numberOfPatches):
+    #see createLinearPatches specification; patches[imageIndex, i*numberOfPatches + j]
+    posEmbeddingsAbsolute = torch.zeros(getInputLayerNumTokens(numberOfPatches), 2)  #pos embeddings absolute include x/y dim only
+    posEmbeddingsAbsolute[:, 0] = torch.unsqueeze(torch.arange(1, numberOfPatches+1),1).repeat(1, numberOfPatches).flatten()
+    posEmbeddingsAbsolute[:, 1] = torch.arange(1, numberOfPatches+1).repeat(numberOfPatches)
+
+    return posEmbeddingsAbsolute
+
+def createLinearPatches(images, numberOfPatches, flattenChannels=True):
+    n, c, h, w = images.shape
+    inputShape = (c, h, w)
+ 
+    if(h != w):
+        print("createLinearPatches requires h == w")
+
+    if(flattenChannels):
+        patches = torch.zeros(n, getInputLayerNumTokens(numberOfPatches), getPatchSizeFlat(inputShape, numberOfPatches))
+    else:
+        patches = torch.zeros(n, c, getInputLayerNumTokens(numberOfPatches), getPatchSizeFlat(inputShape, numberOfPatches))
+
+    patchLength = getPatchLength(inputShape, numberOfPatches)
+
+    for imageIndex, image in enumerate(images):
+        for i in range(numberOfPatches):
+            for j in range(numberOfPatches):
+                patch = image[:, i*patchLength:(i+1)*patchLength, j*patchLength:(j+1)*patchLength]
+                if(flattenChannels):
+                    patch = patch.flatten()
+                    patches[imageIndex, i*numberOfPatches + j] = patch
+                else:
+                    patch = patch.flatten(start_dim=1, end_dim=2)
+                    for k in range(c):
+                        patches[imageIndex, k, i*numberOfPatches + j] = patch[k]
+    return patches
+
+def uncreateLinearPatches(sequences, numberOfPatches, numberOfGeoDimensions):
+    n = sequences.shape[0]
+    seqLength = sequences.shape[1]  #numberOfPatches*numberOfPatches
+
+    images = torch.zeros(n, numberOfPatches, numberOfPatches, numberOfGeoDimensions)
+
+    for imageIndex, sequence in enumerate(sequences):
+        for i in range(numberOfPatches):
+            for j in range(numberOfPatches):
+                for k in range(numberOfGeometricDimensions):
+                    images[imageIndex, i, j, k] = sequence[i*numberOfPatches + j, k]
+
+    return images
+
+#@title LayerAdditiveMultiplicativeClass (AMANN)  { form-width: "5%" }
+
+class LayerAdditiveMultiplicativeClass(nn.Module):
     def __init__(self, inputFeatures, outputFeatures, useBias=False, useMultiplicativeUnits=True):
         super().__init__()
         self.inputFeatures = inputFeatures
@@ -152,114 +223,169 @@ class LayerAdditiveMultiplicative(nn.Module):
         Zm = Zm - multiplicativeEmulationFunctionOffsetVal
         return Zm
 
-#@title  { form-width: "5%" }
+#@title FeatureDetectorCNNClass  { form-width: "5%" }
 
-class MSAgeometricHashingClass(nn.Module):
-    def __init__(self, d, n_patches, n_heads=2):
-        super(MSAgeometricHashingClass, self).__init__()
-        self.d = d
-        self.n_heads = n_heads
+class FeatureDetectorCNNClass(nn.Module):
+    def __init__(self, numberOfPatches):
+        super(FeatureDetectorCNNClass, self).__init__()
 
-        assert d % n_heads == 0, f"Can't divide dimension {d} into {n_heads} heads"
+        self.numberOfPatches = numberOfPatches
+        self.numChannels = 16
+        self.featureDetector = nn.Sequential(
+                nn.Conv2d(in_channels=1, out_channels=self.numChannels, kernel_size=5, stride=1, padding='same'),
+                nn.ReLU(),
+                nn.Conv2d(in_channels=self.numChannels, out_channels=1, kernel_size=3, stride=1, padding='same'),
+                nn.ReLU()
+        )
 
-        d_head = int(d / n_heads)
-        self.q_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.k_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.v_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.d_head = d_head
+    def forward(self, images):
+        featureMap = self.featureDetector(images)
+
+        #convert 2D to linear;
+        featureMap = featureDetectorInput = createLinearPatches(featureMap, self.numberOfPatches)
+
+        return featureMap
+
+#@title FeatureDetectorMSAClass  { form-width: "5%" }
+
+class FeatureDetectorMSAClass(nn.Module):
+    def __init__(self, numberOfTokenDimensions, numberOfPatches):
+        super(FeatureDetectorMSAClass, self).__init__()
+
+        self.numberOfPatches = numberOfPatches
+
+        self.numberOfTokenDimensions = numberOfTokenDimensions
+
+        #self.qWeights = nn.Linear(numberOfTokenDimensions, numberOfTokenDimensions)
+        self.kWeights = nn.Linear(numberOfTokenDimensions, numberOfTokenDimensions)
+        #self.vWeights = nn.Linear(numberOfTokenDimensions, numberOfTokenDimensions)
+
+        self.featureDetector = nn.Linear(numberOfTokenDimensions, 1)
+
+    def forward(self, sequences):
+        #sequences shape (N, sequenceLength, numberOfTokenDimensions)
+  
+        featureMapList = []
+        batchSize = sequences.shape[0]
+        sequenceLength = sequences.shape[1]
+
+        posEmbeddingsAbsolute = getPositionalEmbeddingsAbsolute(self.numberOfPatches).repeat(batchSize, 1, 1)
+
+        for N in range(batchSize):
+
+            seq = sequences[N]
+            posEmbeddings = posEmbeddingsAbsolute[N]
+            
+            #q = self.qWeights(seq)
+            k = self.kWeights(seq)
+            #v = self.vWeights(seq)
+            
+            featureMapN = self.featureDetector(k) #49x16 -> 49x1
+
+            #featureMap = q @ k.T   #49x16 -> 49x49
+            #kdots = k @ k.T
+            #dots = q @ kdots.T
+            
+            featureMapList.append(featureMapN)
+
+        featureMap = torch.stack(featureMapList, dim=0) 
+
+        return featureMap
+
+#@title GeometricHashingClass  { form-width: "5%" }
+
+class GeometricHashingClass(nn.Module):
+    def __init__(self, numberOfTokenDimensions, numberOfPatches):
+
+        self.numberOfPatches = numberOfPatches
+        self.numberOfTokenDimensions = numberOfTokenDimensions
+
+        super(GeometricHashingClass, self).__init__()
+          
+        self.cosSim = torch.nn.CosineSimilarity(dim=1)  #CHECKTHIS: dim=1
 
         self.numberOfGeometricDimensions = numberOfGeometricDimensions    #2D object data (2DOD)
         self.geometricHashingNumKeypoints = self.numberOfGeometricDimensions+1    #2DOD: 3: 3DOD: 4   #number of features to use to perform geometric hashing (depends on input object data dimensions; 2DOD/3DOD)
-        self.geometricHashingNumberLayers = self.geometricHashingNumKeypoints #number of consecutive transformations required to be encoded/learnt by MSAgeomtricHashing
         self.geometricHashingNumPixels = 1  #1 pixel (token) will be transformed
-        if(useGeometricHashingLayerProbabilisticKeypoints):
-            if(useGeometricHashingLayerProbabilisticKeypointsSoftMax):
-                self.softmax = nn.Softmax(dim=-1)
-            if(useGeometricHashingLayerProbabilisticKeypointsNonlinearity):
-                self.activationFunction = torch.nn.ReLU(inplace=False)
-            
-            hiddenLayerNumTokens = getHiddenLayerNumTokens(n_patches)
-            self.numberOfAttentionDimensions = 1
-            self.geometricHashingNumInputs = hiddenLayerNumTokens + 1
-            self.geometricHashingInputDim = (hiddenLayerNumTokens*(self.numberOfGeometricDimensions+self.numberOfAttentionDimensions)) + (self.geometricHashingNumPixels*self.numberOfGeometricDimensions)
-        else:
-            self.geometricHashingNumInputs = self.geometricHashingNumKeypoints+self.geometricHashingNumPixels
-            self.geometricHashingInputDim = self.geometricHashingNumInputs * self.numberOfGeometricDimensions
         
-        linearAdditiveMultiplicativeList = []
-        for i in range(self.geometricHashingNumberLayers):
-            linearAdditiveMultiplicativeList.append(LayerAdditiveMultiplicative(self.geometricHashingInputDim, self.geometricHashingInputDim, useMultiplicativeUnits=True))
-        linearAdditiveMultiplicativeList.append(LayerAdditiveMultiplicative(self.geometricHashingInputDim, self.numberOfGeometricDimensions, useMultiplicativeUnits=False))
-        self.linearAdditiveMultiplicativeModuleList = nn.ModuleList(linearAdditiveMultiplicativeList)
+        if(useGeometricHashingAMANN):
+            self.geometricHashingNumberLayers = self.geometricHashingNumKeypoints #number of consecutive transformations required to be encoded/learnt by MSAgeomtricHashing
+            if(useGeometricHashingProbabilisticKeypoints):
+                if(useGeometricHashingProbabilisticKeypointsSoftMax):
+                    self.softmax = nn.Softmax(dim=-1)
+                if(useGeometricHashingProbabilisticKeypointsNonlinearity):
+                    self.activationFunction = torch.nn.ReLU(inplace=False)
+                
+                inputLayerNumTokens = getInputLayerNumTokens(numberOfPatches)
+                self.numberOfAttentionDimensions = 1
+                self.geometricHashingNumInputs = inputLayerNumTokens + 1
+                self.geometricHashingInputDim = (self.geometricHashingNumInputs*(self.numberOfGeometricDimensions+self.numberOfAttentionDimensions))
+            else:  
+                self.geometricHashingNumInputs = self.geometricHashingNumKeypoints+self.geometricHashingNumPixels
+                self.geometricHashingInputDim = self.geometricHashingNumInputs * self.numberOfGeometricDimensions
+     
+            linearAdditiveMultiplicativeList = []
+            for i in range(self.geometricHashingNumberLayers):
+                linearAdditiveMultiplicativeList.append(LayerAdditiveMultiplicativeClass(self.geometricHashingInputDim, self.geometricHashingInputDim, useMultiplicativeUnits=True))
+            linearAdditiveMultiplicativeList.append(LayerAdditiveMultiplicativeClass(self.geometricHashingInputDim, self.numberOfGeometricDimensions, useMultiplicativeUnits=False))
+            self.linearAdditiveMultiplicativeModuleList = nn.ModuleList(linearAdditiveMultiplicativeList)
 
-        self.cosSim = torch.nn.CosineSimilarity(dim=1)  #CHECKTHIS: dim=1
 
     def modifiedReLU(self, Z):
-        Z = Z - useGeometricHashingLayerProbabilisticKeypointsNonlinearityOffset
+        Z = Z - useGeometricHashingProbabilisticKeypointsNonlinearityOffset
         A = self.activationFunction(Z)
         return A
 
-    def forward(self, sequences, posEmbeddingsAbsolute):
-        #currently requires n_heads = 1
+    def forward(self, sequences, featureMap):
 
-        # Sequences has shape (N, seq_length, token_dim)
-        # We go into shape    (N, seq_length, n_heads, token_dim / n_heads)
-        # And come back to    (N, seq_length, item_dim)  (through concatenation)
         posEmbeddingsGeometricNormalisedList = []
         batchSize = sequences.shape[0]
-        seq_length = sequences.shape[1]
+        sequenceLength = sequences.shape[1]
+
+        posEmbeddings = getPositionalEmbeddingsAbsolute(self.numberOfPatches)
+
+        #sequences shape (N, sequenceLength, numberOfTokenDimensions)
+
         for N in range(batchSize):
-            head = 0
-            q_mapping = self.q_mappings[head]
-            k_mapping = self.k_mappings[head]
-            v_mapping = self.v_mappings[head]
 
-            sequenceN = sequences[N]
-            posEmbeddingsN = posEmbeddingsAbsolute[N]
+            #proximity calculations;
 
-            #seq = sequenceN[:, head * self.d_head: (head + 1) * self.d_head]
-            #posEmb = posEmbeddingsN[:, head * self.d_head: (head + 1) * self.d_head]
-            seq = sequenceN  #n_heads = 1
-            posEmbeddings = posEmbeddingsN #n_heads = 1
-            
-            q, k, v = q_mapping(seq), k_mapping(seq), v_mapping(seq)
-            
-            dotsLuminosity = q @ k.T
-   
             #https://stackoverflow.com/questions/29063851/how-to-parallelized-scipy-cosine-similarity-calculation
             posEmbeddings1 = posEmbeddings/torch.linalg.norm(posEmbeddings, axis=1)[:,None]
             posEmbeddings1 = torch.nan_to_num(posEmbeddings1, nan=0.0)  #CHECKTHIS; nan=0.0
 
             dotsProximity = torch.einsum('ik,jk->ij', posEmbeddings1, posEmbeddings1)
 
+            dotsLuminosity = featureMap[N]
+            #print("dotsLuminosity = ", dotsLuminosity.shape)
+            #print("dotsProximity = ", dotsProximity.shape)
             dots = torch.multiply(dotsLuminosity, dotsProximity)
 
             posEmbeddingsNormalised = normaliseInputs0to1(posEmbeddings)
+            geometricHashingPixelPosEmbeddings = posEmbeddingsNormalised
 
-            if(useGeometricHashingLayerProbabilisticKeypoints):
+            if(useGeometricHashingProbabilisticKeypoints):
                 attention = dots
-                if(useGeometricHashingLayerProbabilisticKeypointsSoftMax):
-                    attention = self.softmax(attention / (self.d_head ** 0.5))   #attention = self.softmax(dots)
-                if(useGeometricHashingLayerProbabilisticKeypointsNonlinearity):
-                    #attention = normaliseInputs0to1(attention)  #optional
+                if(useGeometricHashingProbabilisticKeypointsSoftMax):
+                    attention = self.softmax(attention / (self.numberOfTokenDimensions ** 0.5))   #attention = self.softmax(dots)
+                if(useGeometricHashingProbabilisticKeypointsNonlinearity):
                     attention = self.modifiedReLU(attention) #apply non-linearity to select small number of keypoints    #self.activationFunction(dots)
 
                 attention = torch.unsqueeze(attention, dim=2)
                 
-                #attention = normaliseInputs0to1(attention)  #optional
-                #print("attention = ", attention)
-
                 posEmbeddingsRepeat = posEmbeddingsNormalised
                 posEmbeddingsRepeat = torch.unsqueeze(posEmbeddingsRepeat, dim=1)
                 numRep = posEmbeddingsRepeat.shape[0]
                 posEmbeddingsRepeat = posEmbeddingsRepeat.repeat(1, posEmbeddingsRepeat.shape[0], 1)   
 
-                if(useGeometricHashingLayerProbabilisticKeypointsZero):
+                if(useGeometricHashingProbabilisticKeypointsZero):
                     attentionThresholded = torch.gt(attention, 0.0).type(torch.float) 
                     posEmbeddingsRepeat = torch.multiply(posEmbeddingsRepeat, attentionThresholded)
 
                 geometricHashingKeypointsPosEmbeddings = torch.cat([posEmbeddingsRepeat, attention], dim=2)
 
+                pixelPosEmbeddingAttentionArtificial = torch.ones(1,1).repeat(sequenceLength, 1)
+                geometricHashingPixelPosEmbeddings = torch.cat([geometricHashingPixelPosEmbeddings, pixelPosEmbeddingAttentionArtificial], dim=1)    #set pixel embedding artificial attention value to 1.0
             else:
                 keypoints = torch.topk(dots, k=self.geometricHashingNumKeypoints, dim=1)
                 keypointsIndices = keypoints.indices
@@ -269,310 +395,171 @@ class MSAgeometricHashingClass(nn.Module):
                 keypointsPosEmbeddingsFlattened = posEmbeddingsNormalised[keypointsIndicesFlattened]
                 keypointsPosEmbeddings = torch.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
                 geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings
-
-                #print("geometricHashingKeypointsPosEmbeddings = ", geometricHashingKeypointsPosEmbeddings)
        
-            geometricHashingKeypointsPosEmbeddings = geometricHashingKeypointsPosEmbeddings.flatten(start_dim=1, end_dim=2)
-
-            geometricHashingPixelPosEmbeddings = posEmbeddingsNormalised
-            geometricHashingInputs = torch.cat([geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings], dim=1)
-
-            if(useGeometricHashingLayerReduceInputMagnitude):
-                geometricHashingInputs = geometricHashingInputs / 5.0
-            #print("geometricHashingInputs = ", geometricHashingInputs)
-
-            geometricHashingLayer = geometricHashingInputs
-            for i, l in enumerate(self.linearAdditiveMultiplicativeModuleList):
-                geometricHashingLayer = l(geometricHashingLayer)
-                #print("geometricHashingLayer = ", geometricHashingLayer)
-            geometricHashingOutput = geometricHashingLayer
-            #print("geometricHashingOutput = ", geometricHashingOutput)
             
-            posEmbeddingsAbsoluteGeoNormalisedN = geometricHashingOutput
+            if(useGeometricHashingAMANN):
+                geometricHashingKeypointsPosEmbeddings = geometricHashingKeypointsPosEmbeddings.flatten(start_dim=1, end_dim=2)
 
-            if(useGeometricHashingLayerNormaliseOutput):
-                #posEmbeddingsAbsoluteGeoNormalisedN = torch.clone(geometricHashingOutput)
-                posEmbeddingsAbsoluteGeoNormalisedN = normaliseInputs0to1(posEmbeddingsAbsoluteGeoNormalisedN)
-            print("posEmbeddingsAbsoluteGeoNormalisedN = ", posEmbeddingsAbsoluteGeoNormalisedN)
+                geometricHashingInputs = torch.cat([geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings], dim=1)
+
+                if(useGeometricHashingReduceInputMagnitude):
+                    geometricHashingInputs = geometricHashingInputs / 5.0
+
+                geometricHashingLayer = geometricHashingInputs
+                for i, l in enumerate(self.linearAdditiveMultiplicativeModuleList):
+                    geometricHashingLayer = l(geometricHashingLayer)
+                    #print("geometricHashingLayer = ", geometricHashingLayer)
+                geometricHashingOutput = geometricHashingLayer
+                #print("geometricHashingOutput = ", geometricHashingOutput)
+
+                posEmbeddingsAbsoluteGeoNormalisedN = geometricHashingOutput
+
+                if(useGeometricHashingNormaliseOutput):
+                    posEmbeddingsAbsoluteGeoNormalisedN = normaliseInputs0to1(posEmbeddingsAbsoluteGeoNormalisedN)
+                #print("posEmbeddingsAbsoluteGeoNormalisedN = ", posEmbeddingsAbsoluteGeoNormalisedN)
+
 
             posEmbeddingsGeometricNormalisedList.append(posEmbeddingsAbsoluteGeoNormalisedN)
 
         posEmbeddingsGeometricNormalised = torch.stack(posEmbeddingsGeometricNormalisedList, dim=0) 
 
         return posEmbeddingsGeometricNormalised
-     
-def normaliseInputs0to1(A):
-    if(useGeometricHashingLayerKeypointNormalisation):
-        A = torch.nn.functional.normalize(A)    
-    return A
 
-def getPositionalEmbeddingsAbsolute(n_patches):
-    #see patchify specification; patches[idx, i * n_patches + j]
-    posEmbeddingsAbsolute = torch.zeros(getInputLayerNumTokens(n_patches), 2)  #pos embeddings absolute include x/y dim only
-    posEmbeddingsAbsolute[:, 0] = torch.unsqueeze(torch.arange(1, n_patches+1),1).repeat(1, n_patches).flatten()
-    posEmbeddingsAbsolute[:, 1] = torch.arange(1, n_patches+1).repeat(n_patches)
-   
-    #CHECKTHIS add positional embedding for classification token (0, 0)
-    posEmbeddingClassificationToken = torch.unsqueeze(torch.zeros(2), 0)
-    posEmbeddingsAbsolute = torch.cat([posEmbeddingClassificationToken, posEmbeddingsAbsolute], dim=0)
+#@title ViTgeometricHashingClass { form-width: "5%" }
 
-    return posEmbeddingsAbsolute
+class ViTgeometricHashingClass(nn.Module):
+    def __init__(self, inputShape, numberOfPatches, numberOfHiddenDimensions, numberOfOutputDimensions):
+        super(ViTgeometricHashingClass, self).__init__()
 
-#@title  { form-width: "5%" }
-class MSAClass(nn.Module):
-    def __init__(self, d, n_heads=2):
-        super(MSAClass, self).__init__()
-        self.d = d
-        self.n_heads = n_heads
+        self.inputShape = inputShape
+        c, w, h = inputShape
+        self.numberOfPatches = numberOfPatches
 
-        assert d % n_heads == 0, f"Can't divide dimension {d} into {n_heads} heads"
+        self.patchSize = getPatchSize(inputShape, numberOfPatches)
 
-        d_head = int(d / n_heads)
-        self.q_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.k_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.v_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
-        self.d_head = d_head
-        self.softmax = nn.Softmax(dim=-1)
+        self.numberOfInputDimensions = getInputDim(inputShape, self.patchSize)
+        self.numberOfHiddenDimensions = numberOfHiddenDimensions
+        self.numberOfOutputDimensions = numberOfOutputDimensions
 
-    def forward(self, sequences):
-        # Sequences has shape (N, seq_length, token_dim)
-        # We go into shape    (N, seq_length, n_heads, token_dim / n_heads)
-        # And come back to    (N, seq_length, item_dim)  (through concatenation)
-        result = []
-        for sequence in sequences:
-            seq_result = []
-            for head in range(self.n_heads):
-                q_mapping = self.q_mappings[head]
-                k_mapping = self.k_mappings[head]
-                v_mapping = self.v_mappings[head]
-
-                seq = sequence[:, head * self.d_head: (head + 1) * self.d_head]
-                q, k, v = q_mapping(seq), k_mapping(seq), v_mapping(seq)
-
-                if(useMultKeys):
-                    print("k.shape = ", k.shape)
-                    print("q.shape = ", q.shape)
-                    kdots = k @ k.T
-                    print("kdots.shape = ", kdots.shape)
-                    dots = q @ kdots.T
-                    print("dots.shape = ", dots.shape)
-                else:          
-                    dots = q @ k.T
-
-                attention = self.softmax(dots / (self.d_head ** 0.5))
-                seq_result.append(attention @ v)
-            result.append(torch.hstack(seq_result))
-        return torch.cat([torch.unsqueeze(r, dim=0) for r in result])
-
-def get_positional_embeddings(sequence_length, d):
-    result = torch.ones(sequence_length, d)
-    for i in range(sequence_length):
-        for j in range(d):
-            result[i][j] = np.sin(i / (10000 ** (j / d))) if j % 2 == 0 else np.cos(i / (10000 ** ((j - 1) / d)))
-    return result
-
-#@title  { form-width: "5%" }
-
-def patchify(images, n_patches):
-    n, c, h, w = images.shape
-
-    assert h == w, "Patchify method is implemented for square images only"
-
-    patches = torch.zeros(n, n_patches ** 2, h * w // n_patches ** 2)
-    patch_size = h // n_patches
-
-    for idx, image in enumerate(images):
-        for i in range(n_patches): #orig: for i in range(h // n_patches):
-            for j in range(n_patches):  #orig: for j in range(w // n_patches):
-                patch = image[:, i * patch_size: (i + 1) * patch_size, j * patch_size: (j + 1) * patch_size]
-                patches[idx, i * n_patches + j] = patch.flatten()
-    return patches
-
-class ViTClass(nn.Module):
-    def __init__(self, input_shape, n_patches=7, hidden_d=8, n_heads=2, out_d=10, device=None):
-        # Super constructor
-        super(ViTClass, self).__init__()
-        self.device = device
-
-        # Input and patches sizes
-        self.input_shape = input_shape
-        #print("self.input_shape = ", self.input_shape)
-        self.n_patches = n_patches
-        #print("self.n_patches = ", self.n_patches)
-        self.n_heads = n_heads
-        #print("self.n_heads = ", self.n_heads)
-        assert input_shape[1] % n_patches == 0, "Input shape not entirely divisible by number of patches"
-        assert input_shape[2] % n_patches == 0, "Input shape not entirely divisible by number of patches"
-        self.patch_size = getPatchSize(input_shape, n_patches)
-        #print("self.patch_size = ", self.patch_size)
-        self.hidden_d = hidden_d
-        #print("self.hidden_d = ", self.hidden_d)
-
-        self.input_d = getInputDim(input_shape, self.patch_size)
-        #print("self.input_d = ", self.input_d)
-
-        if(useGeometricHashingLayer):
-            self.hidden_dPreHashing = self.input_d
+        if(useGeometricHashingPixels):
+            self.featureDetectorPatchSize = getPatchSize(inputShape, w)
+            self.featureDetectorInputDim = getInputDim(inputShape, self.featureDetectorPatchSize)
+            self.featureDetectorNumPatches = w
         else:
-            self.hidden_dPreHashing = self.hidden_d
+            self.featureDetectorInputDim = self.numberOfInputDimensions
+            self.featureDetectorNumPatches = numberOfPatches
 
-        # 1) Linear mapper
-        self.linear_mapper = nn.Linear(self.input_d, self.hidden_dPreHashing)
+        self.sequenceLength = getInputLayerNumTokens(numberOfPatches)
         
-        # 2) Classification token
-        self.class_token = nn.Parameter(torch.rand(1, self.hidden_dPreHashing))
-        
-        # 3) Positional embedding
-        # (In forward method)
-        
-        # 4a) Layer normalization 1
-        self.ln1 = nn.LayerNorm((getHiddenLayerNumTokens(n_patches), self.hidden_dPreHashing))
+        if(useGeometricHashingCNNfeatureDetector):
+            self.featureDetectorCNN = FeatureDetectorCNNClass(self.featureDetectorNumPatches)
+        else:
+            self.featureDetectorMSA = FeatureDetectorMSAClass(self.featureDetectorInputDim, self.featureDetectorNumPatches)
 
-        if(useGeometricHashingLayer):
-            #Multi-head Self Attention Gemetric Hashing (MSAGemetricHashing)
-            self.msaGeometricHashing = MSAgeometricHashingClass(self.hidden_dPreHashing, n_patches, n_heads)
+        self.geometricHashing = GeometricHashingClass(self.featureDetectorInputDim, self.featureDetectorNumPatches)
 
-        # 4b) Multi-head Self Attention (MSA) and classification token
-        self.msa = MSAClass(self.hidden_d, n_heads)
-
-        # 5a) Layer normalization 2
-        self.ln2 = nn.LayerNorm((self.n_patches ** 2 + 1, self.hidden_d))
-
-        # 5b) Encoder MLP
-        self.enc_mlp = nn.Sequential(
-            nn.Linear(self.hidden_d, self.hidden_d),
-            nn.ReLU()
-        )
-
-        # 6) Classification MLP
-        self.mlp = nn.Sequential(
-            nn.Linear(self.hidden_d, out_d),
-            nn.Softmax(dim=-1)
-        )
+        self.outputLayer = nn.Sequential(
+            nn.Linear(self.numberOfHiddenDimensions*self.sequenceLength, self.numberOfOutputDimensions), 
+            nn.Softmax(dim=-1))
 
     def forward(self, images):
-        # Dividing images into patches
+
         n, c, w, h = images.shape
-        patches = patchify(images, self.n_patches)
-        #print("patches.shape = ", patches)
+        tokens = createLinearPatches(images, self.numberOfPatches)
 
-        # Running linear layer for tokenization
-        tokens = self.linear_mapper(patches)
-        #print("1 tokens.shape = ", tokens)
-
-        # Adding classification token to the tokens
-        tokens = torch.stack([torch.vstack((self.class_token, tokens[i])) for i in range(len(tokens))])
-        #print("2 tokens.shape = ", tokens)
-
-        # Running Layer Normalization
-        tokens = self.ln1(tokens)
-        #print("3 tokens.shape = ", tokens)
-
-        # Adding positional embedding
-        if(useGeometricHashingLayer):
-            posEmbeddingsAbsolute = getPositionalEmbeddingsAbsolute(self.n_patches).repeat(n, 1, 1).to(self.device)
-            #print("3 posEmbeddingsAbsolute.shape = ", posEmbeddingsAbsolute)
-
-            # Running MSAGeometricHashing and residual connection (baxterai)
-            posEmbeddingsAbsoluteGeoNormalised = self.msaGeometricHashing(tokens, posEmbeddingsAbsolute)
-            #print("posEmbeddingsAbsoluteGeoNormalised.shape = ", posEmbeddingsAbsoluteGeoNormalised)
- 
-            tokensAndPosEmbeddings = torch.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
-            #print("tokensAndPosEmbeddings.shape = ", tokensAndPosEmbeddings)
-            tokens = tokensAndPosEmbeddings
+        if(useGeometricHashingPixels):
+            if(useGeometricHashingCNNfeatureDetector):
+                featureDetectorInput = images
+            else:
+                featureDetectorInput = createLinearPatches(images, w)
         else:
-            posEmbeddings = get_positional_embeddings(self.n_patches ** 2 + 1, self.hidden_d).repeat(n, 1, 1).to(self.device)
-            #print("3 posEmbeddings.shape = ", posEmbeddings.shape)
-            #print("3 tokens.shape = ", tokens.shape)
-            tokens = tokens+posEmbeddings   #add the embeddings to the tokens?
-            #print("3 tokens.shape = ", tokens.shape)
+            featureDetectorInput = tokens
 
+        if(useGeometricHashingCNNfeatureDetector):
+            featureMap = self.featureDetectorCNN(featureDetectorInput)
+        else:
+            featureMap = self.featureDetectorMSA(featureDetectorInput)
 
-        # TRANSFORMER ENCODER BEGINS ###################################
-        # NOTICE: MULTIPLE ENCODER BLOCKS CAN BE STACKED TOGETHER ######
-        # Running MSA and residual connection
-        #print("tokens.shape = ", tokens.shape)
-        out = tokens + self.msa(tokens)
-        #print("1 out.shape = ", out)
+        posEmbeddingsAbsoluteGeoNormalised = self.geometricHashing(featureDetectorInput, featureMap)
 
-        # Running Layer Normalization, MLP and residual connection
-        out = out + self.enc_mlp(self.ln2(out))
-        #print("2 out.shape = ", out)
-        # TRANSFORMER ENCODER ENDS   ###################################
+        if(useGeometricHashingPixels):
+            #convert pixel positional embeddings to patch positional embeddings
+            imagePosEmbeddings = uncreateLinearPatches(posEmbeddingsAbsoluteGeoNormalised, self.featureDetectorNumPatches, numberOfGeometricDimensions)
+            imagePosEmbeddings = imagePosEmbeddings.permute(0, 3, 1, 2) #change to n, numberOfGeoDimensions, x, y
+            posEmbeddingsAbsoluteGeoNormalised = createLinearPatches(imagePosEmbeddings, self.numberOfPatches, flattenChannels=False)
+            posEmbeddingsAbsoluteGeoNormalised = posEmbeddingsAbsoluteGeoNormalised.permute(0, 2, 3, 1) #change to n, seqLength, numberOfInputDimensions, numberOfGeoDimensions
+            posEmbeddingsAbsoluteGeoNormalised = torch.mean(posEmbeddingsAbsoluteGeoNormalised, dim=2)  #average over numberOfInputDimensions
+        
+        tokensAndPosEmbeddings = torch.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
 
-        # Getting the classification token only
-        out = out[:, 0]
-        #print("3 out.shape = ", out)
+        finalHiddenLayer = torch.reshape(tokensAndPosEmbeddings, (tokensAndPosEmbeddings.shape[0], tokensAndPosEmbeddings.shape[1]*tokensAndPosEmbeddings.shape[2]))
+        pred = self.outputLayer(finalHiddenLayer)
 
-        return self.mlp(out)
+        return pred
 
-#@title  { form-width: "5%" }
+#@title main  { form-width: "5%" }
 
 def main():
-    # Loading data
-    transform = ToTensor()
 
-    train_set = MNIST(root='./../datasets', train=True, download=True, transform=transform)
-    test_set = MNIST(root='./../datasets', train=False, download=True, transform=transform)
+    #template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
-    batch_size = 16 #debug: 2
-    input_shape = (1, 28, 28)   #MNIST defined
-    out_d = 10     #MNIST defined
+    trainDataset = MNIST(root='./../datasets', train=True, download=True, transform=ToTensor())
+    testDataset = MNIST(root='./../datasets', train=False, download=True, transform=ToTensor())
 
-    train_loader = DataLoader(train_set, shuffle=True, batch_size=batch_size)
-    test_loader = DataLoader(test_set, shuffle=False, batch_size=batch_size)
+    batchSize = 16 #debug: 2
+    inputShape = (1, 28, 28)   #MNIST defined
+    numberOfOutputDimensions = 10     #MNIST defined
 
-    n_patches=7
-    patch_size = getPatchSize(input_shape, n_patches)
-    input_d = getInputDim(input_shape, patch_size)
-    if(useGeometricHashingLayer):
-        hidden_dPreHashing = input_d
-        hidden_d = input_d + numberOfGeometricDimensions   #mandatory (currently required for getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and hidden_d)
-        n_heads = 1 #currently required (do not split sequence dim across multiple heads)?
-    else:
-        hidden_d = 20   #arbitrary
-        hidden_dPreHashing = hidden_d
-        n_heads = 2
+    trainDataLoader = DataLoader(trainDataset, shuffle=True, batch_size=batchSize)
+    testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize)
 
-    # Defining model and training options
+    numberOfPatches = 7
+    patchSize = getPatchSize(inputShape, numberOfPatches)
+    numberOfInputDimensions = getInputDim(inputShape, patchSize)
+    numberOfHiddenDimensions = numberOfInputDimensions + numberOfGeometricDimensions   #mandatory (currently required for getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensions)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ViTClass(input_shape, n_patches=n_patches, hidden_d=hidden_d, n_heads=n_heads, out_d=out_d, device=device).to(device)
-    N_EPOCHS = 5
-    LR = 0.01
+    
+    geometricHashingModel = ViTgeometricHashingClass(inputShape, numberOfPatches, numberOfHiddenDimensions, numberOfOutputDimensions).to(device)
 
-    # Training loop
-    optimizer = Adam(model.parameters(), lr=LR)
+    numberOfEpochs = 10
+    learningRate = 0.05
+
+    optimizer = Adam(geometricHashingModel.parameters(), lr=learningRate)
     criterion = CrossEntropyLoss()
-    for epoch in tqdm(range(N_EPOCHS), desc="Training"):
-        train_loss = 0.0
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}", leave=False):
+    for epoch in tqdm(range(numberOfEpochs), desc="Train"):
+        trainLoss = 0.0
+        for batch in tqdm(trainDataLoader, desc=f"Epoch {epoch + 1}", leave=False):
             x, y = batch
             x, y = x.to(device), y.to(device)
-            y_hat = model(x)
-            
-            loss = criterion(y_hat, y) / len(x)
 
-            train_loss += loss.detach().cpu().item()
+            posEmbeddingsAbsoluteGeoNormalised = None
+            if(useGeometricHashing):
+                pred = geometricHashingModel(x)
+            
+            loss = criterion(pred, y) / len(x)
+
+            trainLoss += loss.detach().cpu().item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        print(f"Epoch {epoch + 1}/{N_EPOCHS} loss: {train_loss:.2f}")
+        print(f"Epoch {epoch + 1}/{numberOfEpochs} loss: {trainLoss:.2f}")
 
-    # Test loop
     correct, total = 0, 0
-    test_loss = 0.0
-    for batch in tqdm(test_loader, desc="Testing"):
+    testLoss = 0.0
+    for batch in tqdm(testDataLoader, desc="Test"):
         x, y = batch
         x, y = x.to(device), y.to(device)
-        y_hat = model(x)
+        pred = geometricHashingModel(x)
         loss = criterion(y_hat, y) / len(x)
-        test_loss += loss.detach().cpu().item()
+        testLoss += loss.detach().cpu().item()
 
-        correct += torch.sum(torch.argmax(y_hat, dim=1) == y).detach().cpu().item()
+        correct += torch.sum(torch.argmax(pred, dim=1) == y).detach().cpu().item()
         total += len(x)
-    print(f"Test loss: {test_loss:.2f}")
+
+    print(f"Test loss: {testLoss:.2f}")
     print(f"Test accuracy: {correct / total * 100:.2f}%")
 
 
