@@ -1,7 +1,7 @@
 """ATORpt_operations.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -138,8 +138,9 @@ def getPositionalEmbeddings(sequenceLength, d):
     return result
 	
 def getPositionalEmbeddingsAbsolute(numberOfPatches):
+	inputLayerNumTokens = getInputLayerNumTokens(numberOfPatches)
 	#see createLinearPatches specification; patches[imageIndex, i*numberOfPatches + j]
-	posEmbeddingsAbsolute = pt.zeros(getInputLayerNumTokens(numberOfPatches), 2)  #pos embeddings absolute include x/y dim only
+	posEmbeddingsAbsolute = pt.zeros(inputLayerNumTokens, 2)  #pos embeddings absolute include x/y dim only
 	posEmbeddingsAbsolute[:, yAxis] = pt.unsqueeze(pt.arange(1, numberOfPatches+1),1).repeat(1, numberOfPatches).flatten()
 	posEmbeddingsAbsolute[:, xAxis] = pt.arange(1, numberOfPatches+1).repeat(numberOfPatches)
 

@@ -2,7 +2,7 @@
 
 # Author:
 Brian Pulfer - Copyright (c) 2022 Peutlefaire (https://github.com/BrianPulfer)
-Richard Bruce Baxter - Copyright (c) 2022 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -80,14 +80,13 @@ class ViTClass(nn.Module):
 			#add positional embedding for classification token (0, 0)
 			posEmbeddingClassificationToken = pt.unsqueeze(pt.unsqueeze(pt.zeros(numberOfGeometricDimensions), 0), 0).repeat(batchSize, 1, 1)
 			posEmbeddingsAbsoluteGeoNormalised = pt.cat([posEmbeddingClassificationToken, posEmbeddingsAbsoluteGeoNormalised], dim=1)
-			
 			tokensAndPosEmbeddings = pt.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
 			tokens = tokensAndPosEmbeddings
 		else:
 			posEmbeddings = ATORpt_operations.getPositionalEmbeddings(ATORpt_operations.getHiddenLayerNumTokens(self.numberOfPatches), self.numberOfHiddenDimensions).repeat(batchSize, 1, 1)
 			tokens = tokens + posEmbeddings   #add the embeddings to the tokens
 
-		print("tokens.shape = ", tokens.shape)
+		#print("tokens.shape = ", tokens.shape)
 		out = tokens + self.msa(tokens)
 
 		out = out + self.encoderMLP(self.layerNormalisation2(out))
@@ -124,7 +123,7 @@ class MSAClass(nn.Module):
 			for head in range(self.numberOfHeads):
 			
 				seq = sequence[:, head * self.numberOfHeadDimensions: (head + 1) * self.numberOfHeadDimensions]	
-				#seq shape = batchSize, sequenceLength, numberOfHeads, numberOfHiddenDimensions / numberOfHeads
+				#seq shape = sequenceLength, numberOfHeadDimensions [numberOfHiddenDimensions / numberOfHeads]
 				
 				qWeightsHead = self.qWeights[head]
 				kWeightsHead = self.kWeights[head]
@@ -140,7 +139,14 @@ class MSAClass(nn.Module):
 					dots = q @ k.T
 
 				attention = self.softmax(dots / (self.numberOfHeadDimensions ** 0.5))
-				resultN = attention @ v
+				if(positionalEmbeddingTransformationOnly):
+					resultNposEmbeddings = attention @ v	
+					resultNposEmbeddings = resultNposEmbeddings[:, 1:2+1]	#modify positional embeddings only (posEmbeddingsAbsoluteGeoNormalised), ignore tokens
+					seqTokens = seq[:, 0]
+					seqTokens = pt.unsqueeze(seqTokens, dim=1)
+					resultN = pt.cat((seqTokens, resultNposEmbeddings), dim=1)
+				else:
+					resultN = attention @ v
 
 				seqResult.append(resultN)
 			result.append(pt.hstack(seqResult))

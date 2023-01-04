@@ -1,7 +1,7 @@
 """ATORpt_main.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -11,7 +11,7 @@ Python 3 and pytorch 1.7+
 
 conda create -n pytorchenv
 source activate pytorchenv
-conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
 conda install tqdm
 conda install matplotlib
 
@@ -91,8 +91,9 @@ def main():
 	
 	modelParameters = []
 	if(useParallelisedGeometricHashing):
-		ATORmodel = ATORpt_ATOR.ATORmodelClass(inputShape, numberOfPatchesATOR)
-		modelParameters = modelParameters + list(ATORmodel.parameters()) 
+		if(not positionalEmbeddingTransformationOnly):
+			ATORmodel = ATORpt_ATOR.ATORmodelClass(inputShape, numberOfPatchesATOR)
+			modelParameters = modelParameters + list(ATORmodel.parameters()) 
 		
 	if(useClassificationSnapshots):
 		pass
@@ -122,7 +123,12 @@ def main():
 					images = imagesOrig
 			
 				if(useParallelisedGeometricHashing):
-					posEmbeddingsAbsoluteGeoNormalised = ATORmodel(images)
+					if(positionalEmbeddingTransformationOnly):
+						posEmbeddingsAbsoluteGeoNormalised = ATORpt_operations.getPositionalEmbeddingsAbsolute(numberOfPatchesVIT)	#or numberOfPatchesATOR
+						posEmbeddingsAbsoluteGeoNormalised = pt.unsqueeze(posEmbeddingsAbsoluteGeoNormalised, dim=0)
+						posEmbeddingsAbsoluteGeoNormalised = posEmbeddingsAbsoluteGeoNormalised.repeat(batchSize, 1, 1)
+					else:
+						posEmbeddingsAbsoluteGeoNormalised = ATORmodel(images)
 				else:
 					posEmbeddingsAbsoluteGeoNormalised = None
 					

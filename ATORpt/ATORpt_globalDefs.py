@@ -1,7 +1,7 @@
 """ATORpt_globalDefs.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -21,7 +21,6 @@ pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
-
 debugGeometricHashingHardcoded = False	#print geometrically transformed tensors
 
 useMultipleSpatialResolutions = False	#feed input at multiple resolutions	#incomplete
@@ -37,37 +36,42 @@ useMultKeys = False	#initialise (dependent var)
 
 useParallelisedGeometricHashing = True 	#vector transformations of all image pixel coordinates in parallel
 if(useParallelisedGeometricHashing):
-	useClassificationSnapshots = True	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
-	useClassificationVIT = False	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
-
-	useGeometricHashingProbabilisticKeypoints = False   #for backprop   #else use topk  #optional
-	useGeometricHashingCNNfeatureDetector = True   #mandatory
-	useGeometricHashingPixels = True	#mandatory
-	if(useGeometricHashingProbabilisticKeypoints):
-		useGeometricHashingAMANN = True #mandatory	#experimental
-		useGeometricHashingProbabilisticKeypointsSoftMax = False
-		useGeometricHashingProbabilisticKeypointsNonlinearity = True
-		if(useGeometricHashingProbabilisticKeypointsNonlinearity):
-			if(useGeometricHashingProbabilisticKeypointsSoftMax):
-				useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 0.022	#input Z is normalised between 0 and 1 #calibrate
-			else:
-				useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 1.0  #calibrate
-		useGeometricHashingProbabilisticKeypointsZero = True	#zero all keypoints below attention threshold  #CHECKTHIS: affects backprop 
-		if(useGeometricHashingAMANN):
-			useGeometricHashingNormaliseOutput = True	#normalise geometric hashed positional embeddings output from 0 to 1
-			useGeometricHashingReduceInputMagnitude = False
-		else:
-			print("useGeometricHashingHardcoded not supported for useGeometricHashingProbabilisticKeypoints")
+	positionalEmbeddingTransformationOnly = True	#perform vit positional embedding transformation (leave feature tokens unmodified), do not apply dedicated ATOR/geometric hashing
+	if(positionalEmbeddingTransformationOnly):
+		useClassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
+		useClassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
 	else:
-		useGeometricHashingAMANN = False #mandatory  #experimental	#else use hardcoded geohashing function
-		if(useGeometricHashingAMANN):
-			useGeometricHashingNormaliseOutput = True
-			useGeometricHashingReduceInputMagnitude = False #reduce average magnitude of positional embedding input
+		useClassificationSnapshots = True	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
+		useClassificationVIT = False	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
+
+		useGeometricHashingProbabilisticKeypoints = False   #for backprop   #else use topk  #optional
+		useGeometricHashingCNNfeatureDetector = True   #mandatory
+		useGeometricHashingPixels = True	#mandatory
+		if(useGeometricHashingProbabilisticKeypoints):
+			useGeometricHashingAMANN = True #mandatory	#experimental
+			useGeometricHashingProbabilisticKeypointsSoftMax = False
+			useGeometricHashingProbabilisticKeypointsNonlinearity = True
+			if(useGeometricHashingProbabilisticKeypointsNonlinearity):
+				if(useGeometricHashingProbabilisticKeypointsSoftMax):
+					useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 0.022	#input Z is normalised between 0 and 1 #calibrate
+				else:
+					useGeometricHashingProbabilisticKeypointsNonlinearityOffset = 1.0  #calibrate
+			useGeometricHashingProbabilisticKeypointsZero = True	#zero all keypoints below attention threshold  #CHECKTHIS: affects backprop 
+			if(useGeometricHashingAMANN):
+				useGeometricHashingNormaliseOutput = True	#normalise geometric hashed positional embeddings output from 0 to 1
+				useGeometricHashingReduceInputMagnitude = False
+			else:
+				print("useGeometricHashingHardcoded not supported for useGeometricHashingProbabilisticKeypoints")
 		else:
-			useGeometricHashingHardcoded = True
-			if(useGeometricHashingHardcoded):
-				useGeometricHashingHardcodedParallelisedRotation = False	#requires implementation (apply multiple rotation matrices in parallel)
-	useGeometricHashingKeypointNormalisation = True
+			useGeometricHashingAMANN = False #mandatory  #experimental	#else use hardcoded geohashing function
+			if(useGeometricHashingAMANN):
+				useGeometricHashingNormaliseOutput = True
+				useGeometricHashingReduceInputMagnitude = False #reduce average magnitude of positional embedding input
+			else:
+				useGeometricHashingHardcoded = True
+				if(useGeometricHashingHardcoded):
+					useGeometricHashingHardcodedParallelisedRotation = False	#requires implementation (apply multiple rotation matrices in parallel)
+		useGeometricHashingKeypointNormalisation = True
 	numberOfGeometricDimensions = 2	#2D object data (2DOD)
 else:
 	useMultKeys = True   #experimental (modify transformer to support geometric hashing operations)
