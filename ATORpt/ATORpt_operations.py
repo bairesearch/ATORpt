@@ -1,7 +1,7 @@
 """ATORpt_operations.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -27,6 +27,11 @@ if(debugGeometricHashingHardcoded):
 	import matplotlib.cm as cm
 
 
+def printImage(image):
+	image = image.cpu().numpy().squeeze()
+	plt.imshow(image, cmap='gray')
+	plt.show()
+				
 def printKeypoints(keypointCoordinates):
 	if(debugGeometricHashingHardcoded):
 		print("printKeypoints")

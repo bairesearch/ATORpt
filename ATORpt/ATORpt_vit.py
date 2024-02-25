@@ -2,7 +2,7 @@
 
 # Author:
 Brian Pulfer - Copyright (c) 2022 Peutlefaire (https://github.com/BrianPulfer)
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License

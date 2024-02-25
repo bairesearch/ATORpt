@@ -1,7 +1,7 @@
 """ATORpt_ATOR.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -59,7 +59,7 @@ class ATORmodelClass(nn.Module):
 
 	def forward(self, images):
 		
-		batchSize, numberOfChannels, imageHeight, imageWidth  = images.shape
+		batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
 					
 		tokens = ATORpt_operations.createLinearPatches(images, self.numberOfPatches)
 		posEmbeddings = ATORpt_operations.getPositionalEmbeddingsAbsolute(self.numberOfPatches)
@@ -74,7 +74,7 @@ class ATORmodelClass(nn.Module):
 			pass
 			#featureMap = self.featureDetectorMSA(featureDetectorInput)
 
-		posEmbeddingsAbsoluteGeoNormalised = self.geometricHashing(posEmbeddings, tokens, featureMap)
+		posEmbeddingsAbsoluteGeoNormalised = self.geometricHashing(images, posEmbeddings, tokens, featureMap)
 
 		return posEmbeddingsAbsoluteGeoNormalised
 

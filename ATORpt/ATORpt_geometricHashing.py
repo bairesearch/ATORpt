@@ -1,7 +1,7 @@
 """ATORpt_geometricHashing.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -21,6 +21,7 @@ import torchvision.transforms as T
 
 from ATORpt_globalDefs import *
 import ATORpt_operations
+import ATORpt_featureDetector
 
 class GeometricHashingClass(nn.Module):
 	def __init__(self, numberOfTokenDimensions, numberOfPatches):
@@ -64,7 +65,7 @@ class GeometricHashingClass(nn.Module):
 		A = self.activationFunction(Z)
 		return A
 
-	def forward(self, posEmbeddings, sequences, featureMap):
+	def forward(self, images, posEmbeddings, sequences, featureMap):
 
 		posEmbeddingsGeometricNormalisedList = []
 		batchSize = sequences.shape[0]
@@ -76,11 +77,15 @@ class GeometricHashingClass(nn.Module):
 		#sequences shape = batchSize, sequenceLength, numberOfTokenDimensions
 		for batchIndex in range(batchSize):
 
+			print("batchIndex = ", batchIndex)
+			
+			imageN = images[batchIndex]
 			pixelValuesN = sequences[batchIndex]
 			featureMapN = featureMap[batchIndex]
 
-			#if(debugGeometricHashingHardcoded):
-			#	ATORpt_operations.printFeatureMap(posEmbeddings, featureMapN)
+			if(debugGeometricHashingHardcoded):
+				ATORpt_operations.printImage(imageN)
+				#ATORpt_operations.printFeatureMap(posEmbeddings, featureMapN)
 
 			posEmbeddingsNormalised = ATORpt_operations.normaliseInputs0to1(posEmbeddings, dim=0)	#normalise across sequenceLength dimension
 			
@@ -89,7 +94,7 @@ class GeometricHashingClass(nn.Module):
 			
 			geometricHashingPixelPosEmbeddings = posEmbeddingsNormalised
 
-			geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings = self.performKeypointDetection(featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings)
+			geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings = ATORpt_featureDetector.performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings)
 			
 			if(useGeometricHashingAMANN):
 				posEmbeddingsAbsoluteGeoNormalisedN = self.performGeometricHashingAMANN(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings)
@@ -101,59 +106,6 @@ class GeometricHashingClass(nn.Module):
 		posEmbeddingsGeometricNormalised = pt.stack(posEmbeddingsGeometricNormalisedList, dim=0) 	#CHECKTHIS: normalise across sequenceLength dimension
 
 		return posEmbeddingsGeometricNormalised
-		
-	def performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings):
-	
-		#proximity calculations;
-
-		#https://stackoverflow.com/questions/29063851/how-to-parallelized-scipy-cosine-similarity-calculation
-		posEmbeddings1 = posEmbeddings/pt.linalg.norm(posEmbeddings, axis=1)[:,None]
-		posEmbeddings1 = pt.nan_to_num(posEmbeddings1, nan=0.0)  #CHECKTHIS; nan=0.0
-
-		dotsProximity = pt.einsum('ik,jk->ij', posEmbeddings1, posEmbeddings1)
-
-		dotsLuminosity = featureMapN
-		#print("featureMapN.shape = ", featureMapN.shape)
-		#print("dotsLuminosity.shape = ", dotsLuminosity.shape)
-		#print("dotsProximity.shape = ", dotsProximity.shape)
-		dots = pt.multiply(dotsLuminosity, dotsProximity)
-
-		#if(debugGeometricHashingHardcoded):
-		#	ATORpt_operations.printFeatureMap(posEmbeddings, dots)
-						
-		if(useGeometricHashingProbabilisticKeypoints):
-			attention = dots
-			if(useGeometricHashingProbabilisticKeypointsSoftMax):
-				attention = self.softmax(attention / (self.numberOfTokenDimensions ** 0.5))   #attention = self.softmax(dots)
-			if(useGeometricHashingProbabilisticKeypointsNonlinearity):
-				attention = self.offsetReLU(attention) #apply non-linearity to select small number of keypoints	#self.activationFunction(dots)
-
-			attention = pt.unsqueeze(attention, dim=2)
-
-			posEmbeddingsRepeat = posEmbeddingsNormalised
-			posEmbeddingsRepeat = pt.unsqueeze(posEmbeddingsRepeat, dim=1)
-			numRep = posEmbeddingsRepeat.shape[0]
-			posEmbeddingsRepeat = posEmbeddingsRepeat.repeat(1, posEmbeddingsRepeat.shape[0], 1)   
-
-			if(useGeometricHashingProbabilisticKeypointsZero):
-				attentionThresholded = pt.gt(attention, 0.0).type(pt.float) 
-				posEmbeddingsRepeat = pt.multiply(posEmbeddingsRepeat, attentionThresholded)
-
-			geometricHashingKeypointsPosEmbeddings = pt.cat([posEmbeddingsRepeat, attention], dim=2)
-
-			pixelPosEmbeddingAttentionArtificial = pt.ones(1,1).repeat(sequenceLength, 1)
-			geometricHashingPixelPosEmbeddings = pt.cat([geometricHashingPixelPosEmbeddings, pixelPosEmbeddingAttentionArtificial], dim=1)	#set pixel embedding artificial attention value to 1.0 (this is only used to ensure that AMANN input is consistent/even)
-		else:
-			keypoints = pt.topk(dots, k=self.geometricHashingNumKeypoints, dim=1)
-			keypointsIndices = keypoints.indices
-			keypointsValues = keypoints.values
-			
-			keypointsIndicesFlattened = pt.reshape(keypointsIndices, (keypointsIndices.shape[0]*keypointsIndices.shape[1],))  #or flatten	#keypointsIndicesFlattened = keypointsIndices.flatten()
-			keypointsPosEmbeddingsFlattened = posEmbeddingsNormalised[keypointsIndicesFlattened]
-			keypointsPosEmbeddings = pt.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
-			geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings
-			
-		return geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings
 
 	def performGeometricHashingAMANN(self, geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings):
 				
@@ -205,7 +157,7 @@ class GeometricHashingClass(nn.Module):
 		#ATORpt_operations.printKeypoints(keypointCoordinates)
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step0")
 		ATORpt_operations.printKeypointsIndex(keypointCoordinates, index=0)
-		print("0 pixelCoordinates = ", pixelCoordinates)
+		#print("0 pixelCoordinates = ", pixelCoordinates)
 		
 		#reorder keypointCoordinates;
 		# kp2
@@ -228,7 +180,7 @@ class GeometricHashingClass(nn.Module):
 		keypointsTriBaseCentre = pt.add(keypointCoordinates[:, 0], keypointCoordinates[:, 1])/2.0
 		pixelCoordinates = pt.subtract(pixelCoordinates, keypointsTriBaseCentre)
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step1")
-		print("1 pixelCoordinates = ", pixelCoordinates)
+		#print("1 pixelCoordinates = ", pixelCoordinates)
 		
 		#step 2 (rotate - wrt keypointCoordinates [0, 1]):
 		#2ia. rotate object data such that the object triangle side is parallel with X axis [and 2ii. third apex is above the lowest 2 apexes]
@@ -237,7 +189,7 @@ class GeometricHashingClass(nn.Module):
 		rotationMatrix = self.createRotationMatrix2Dvec(keypointsTriBaseVec)
 		pixelCoordinates = self.applyRotation2D(pixelCoordinates, rotationMatrix)
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step2")
-		print("2 pixelCoordinates = ", pixelCoordinates)
+		#print("2 pixelCoordinates = ", pixelCoordinates)
 		
 		#step 3 (scale x - wrt keypointCoordinates [0, 1]):   
 		#1a. Scale object data such that the object triangle side is of same length as a predefined side of a predefined triangle
@@ -247,7 +199,7 @@ class GeometricHashingClass(nn.Module):
 		pixelsX = pt.divide(pixelsX, keypointsTriBaseSizeX)
 		pixelCoordinates[:, xAxis] = pixelsX
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step3")
-		print("3 pixelCoordinates = ", pixelCoordinates)
+		#print("3 pixelCoordinates = ", pixelCoordinates)
 		
 		#step 4 (scale y - wrt keypointCoordinates [1y, 2y]):
 		#3a. Scale object data on Y axis such that the third apex is the same perpendicular distance away from the side as is the case for the predefined triangle.
@@ -257,7 +209,7 @@ class GeometricHashingClass(nn.Module):
 		pixelsY = pt.divide(pixelsY, keypointsTriHeightSize)
 		pixelCoordinates[:, yAxis] = pixelsY
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step4")
-		print("4 pixelCoordinates = ", pixelCoordinates)
+		#print("4 pixelCoordinates = ", pixelCoordinates)
 		
 		#step 5 (shear):
 		#4a. shear object data along X axis such that object triangle apexes are coincident with predefined triangle apexes
@@ -271,7 +223,7 @@ class GeometricHashingClass(nn.Module):
 		shearMatrix = self.createShearMatrix2Dvec(shearScalar, horizontalAxis=True)
 		pixelCoordinates = self.applyShear2D(pixelCoordinates, shearMatrix)
 		ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step5")
-		print("5 pixelCoordinates = ", pixelCoordinates)
+		#print("5 pixelCoordinates = ", pixelCoordinates)
 
 		posEmbeddingsAbsoluteGeoNormalisedN = pixelCoordinates
 

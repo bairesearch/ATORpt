@@ -1,7 +1,7 @@
 """ATORpt_globalDefs.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -21,7 +21,7 @@ pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
-debugGeometricHashingHardcoded = False	#print geometrically transformed tensors
+debugGeometricHashingHardcoded = True	#print geometrically transformed tensors
 
 useMultipleSpatialResolutions = False	#feed input at multiple resolutions	#incomplete
 if(useMultipleSpatialResolutions):
@@ -36,13 +36,14 @@ useMultKeys = False	#initialise (dependent var)
 
 useParallelisedGeometricHashing = True 	#vector transformations of all image pixel coordinates in parallel
 if(useParallelisedGeometricHashing):
-	positionalEmbeddingTransformationOnly = True	#perform vit positional embedding transformation (leave feature tokens unmodified), do not apply dedicated ATOR/geometric hashing
+	positionalEmbeddingTransformationOnly = False	#perform vit positional embedding transformation (leave feature tokens unmodified), do not apply dedicated ATOR/geometric hashing (ie if False apply dedicated ATOR/geometric hashing)
 	if(positionalEmbeddingTransformationOnly):
 		useClassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
 		useClassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
 	else:
-		useClassificationSnapshots = True	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
-		useClassificationVIT = False	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
+		#orig: useClassificationSnapshots=True, useClassificationVIT=False
+		useClassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
+		useClassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
 
 		useGeometricHashingProbabilisticKeypoints = False   #for backprop   #else use topk  #optional
 		useGeometricHashingCNNfeatureDetector = True   #mandatory

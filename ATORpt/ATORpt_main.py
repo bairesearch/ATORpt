@@ -1,7 +1,7 @@
 """ATORpt_main.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2022-2023 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -9,14 +9,16 @@ MIT License
 # Installation:
 Python 3 and pytorch 1.7+
 
-conda create -n pytorchenv
-source activate pytorchenv
+conda create -n pytorchsenv
+source activate pytorchsenv
 conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
 conda install tqdm
 conda install matplotlib
+pip install opencv-python opencv-contrib-python
+pip install kornia
 
 # Usage:
-source activate pytorchenv
+source activate pytorchsenv
 python3 ATORpt_main.py
 
 # Description:
