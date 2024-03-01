@@ -1,4 +1,4 @@
-"""ATORpt_vit.py
+"""ATORpt_vitCustom.py
 
 # Author:
 Brian Pulfer - Copyright (c) 2022 Peutlefaire (https://github.com/BrianPulfer)
@@ -11,7 +11,7 @@ MIT License
 see ATORpt_main.py
 
 # Description:
-ATORpt vit
+ATORpt vit Custom
 
 """
 
@@ -21,45 +21,41 @@ import torch.nn as nn
 from ATORpt_globalDefs import *
 import ATORpt_operations
 
-#orig: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
+#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
 class ViTClass(nn.Module):
 	def __init__(self, inputShape, numberOfPatches, numberOfHiddenDimensions, numberOfHeads, numberOfOutputDimensions):
 		super(ViTClass, self).__init__()
 
-		self.inputShape = inputShape
-		numberOfChannels, imageWidth, imageHeight = inputShape
 		self.numberOfPatches = numberOfPatches
 		self.numberOfHeads = numberOfHeads
-		self.patchSize = ATORpt_operations.getPatchSize(inputShape, numberOfPatches)
 		self.numberOfHiddenDimensions = numberOfHiddenDimensions
-		self.numberOfInputDimensions = ATORpt_operations.getInputDim(inputShape, self.patchSize)
-
-		if(inputShape[1] % numberOfPatches != 0):
-			print("inputShape[1] % numberOfPatches != 0")
-		if(inputShape[2] % numberOfPatches != 0):
-			print("inputShape[2] % numberOfPatches != 0")
-
+		if(useATORCserialGeometricHashing):
+			self.patchSize = VITpatchSize
+			self.numberOfInputDimensions = ATORpt_operations.getInputDim2(VITnumberOfChannels, self.patchSize)
+		else:
+			self.inputShape = inputShape
+			numberOfChannels, imageWidth, imageHeight = inputShape
+			self.patchSize = ATORpt_operations.getPatchSize(inputShape, numberOfPatches)
+			self.numberOfInputDimensions = ATORpt_operations.getInputDim(inputShape, self.patchSize)
+			if(inputShape[1] % numberOfPatches != 0):
+				print("inputShape[1] % numberOfPatches != 0")
+			if(inputShape[2] % numberOfPatches != 0):
+				print("inputShape[2] % numberOfPatches != 0")
 		if(useParallelisedGeometricHashing):
 			self.numberOfHiddenDimensionsPreMSA = self.numberOfInputDimensions
 		else:
 			self.numberOfHiddenDimensionsPreMSA = self.numberOfHiddenDimensions
 
 		self.linearMapper = nn.Linear(self.numberOfInputDimensions, self.numberOfHiddenDimensionsPreMSA)
-		
-		self.classificationToken = nn.Parameter(pt.rand(1, self.numberOfHiddenDimensionsPreMSA))
-		
+		self.classificationToken = nn.Parameter(pt.rand(1, self.numberOfHiddenDimensionsPreMSA))	
 		self.layerNormalisation1 = nn.LayerNorm((ATORpt_operations.getHiddenLayerNumTokens(numberOfPatches), self.numberOfHiddenDimensionsPreMSA))
-		
 		self.msa = MSAClass(self.numberOfHiddenDimensions, numberOfHeads)
-
 		self.layerNormalisation2 = nn.LayerNorm((self.numberOfPatches ** 2 + 1, self.numberOfHiddenDimensions))
-
 		self.encoderMLP = nn.Sequential(
 			nn.Linear(self.numberOfHiddenDimensions, self.numberOfHiddenDimensions),
 			nn.ReLU()
 		)
-
 		self.outputMLP = nn.Sequential(
 			nn.Linear(self.numberOfHiddenDimensions, numberOfOutputDimensions),
 			nn.Softmax(dim=-1)
@@ -67,31 +63,38 @@ class ViTClass(nn.Module):
 
 	def forward(self, images, posEmbeddingsAbsoluteGeoNormalised=None):
 
-		batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
-		tokens = ATORpt_operations.createLinearPatches(images, self.numberOfPatches)
-
-		tokens = self.linearMapper(tokens)
-
-		tokens = pt.stack([pt.vstack((self.classificationToken, tokens[i])) for i in range(len(tokens))])
-
-		tokens = self.layerNormalisation1(tokens)
-
-		if(useParallelisedGeometricHashing):
-			#add positional embedding for classification token (0, 0)
-			posEmbeddingClassificationToken = pt.unsqueeze(pt.unsqueeze(pt.zeros(numberOfGeometricDimensions), 0), 0).repeat(batchSize, 1, 1)
-			posEmbeddingsAbsoluteGeoNormalised = pt.cat([posEmbeddingClassificationToken, posEmbeddingsAbsoluteGeoNormalised], dim=1)
-			tokensAndPosEmbeddings = pt.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
-			tokens = tokensAndPosEmbeddings
+		print("images.shape = ", images.shape)
+		if(useATORCserialGeometricHashing):
+			#numberOfPatches, numberOfChannels, imageHeight, imageWidth = images.shape
+			tokens = ATORpt_operations.createLinearPatches(images)
 		else:
-			posEmbeddings = ATORpt_operations.getPositionalEmbeddings(ATORpt_operations.getHiddenLayerNumTokens(self.numberOfPatches), self.numberOfHiddenDimensions).repeat(batchSize, 1, 1)
-			tokens = tokens + posEmbeddings   #add the embeddings to the tokens
-
+			#batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
+			tokens = ATORpt_operations.createLinearPatches(images, self.numberOfPatches)
+		print("tokens.shape = ", tokens.shape)
+		tokens = self.linearMapper(tokens)
+		print("tokens.shape = ", tokens.shape)
+		tokens = pt.stack([pt.vstack((self.classificationToken, tokens[i])) for i in range(len(tokens))])
+		print("tokens.shape = ", tokens.shape)
+		tokens = self.layerNormalisation1(tokens)
+		print("tokens.shape = ", tokens.shape)
+		if(usePositionalEmbeddings):
+			if(useParallelisedGeometricHashing):
+				#add positional embedding for classification token (0, 0)
+				posEmbeddingClassificationToken = pt.unsqueeze(pt.unsqueeze(pt.zeros(numberOfGeometricDimensions), 0), 0).repeat(batchSize, 1, 1)
+				posEmbeddingsAbsoluteGeoNormalised = pt.cat([posEmbeddingClassificationToken, posEmbeddingsAbsoluteGeoNormalised], dim=1)
+				tokensAndPosEmbeddings = pt.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
+				tokens = tokensAndPosEmbeddings
+			else:
+				posEmbeddings = ATORpt_operations.getPositionalEmbeddings(ATORpt_operations.getHiddenLayerNumTokens(self.numberOfPatches), self.numberOfHiddenDimensions).repeat(batchSize, 1, 1)
+				tokens = tokens + posEmbeddings   #add the embeddings to the tokens
+		
 		#print("tokens.shape = ", tokens.shape)
 		out = tokens + self.msa(tokens)
-
+		print("tokens.shape = ", tokens.shape)
 		out = out + self.encoderMLP(self.layerNormalisation2(out))
-
+		print("out.shape = ", out.shape)
 		out = out[:, 0]
+		print("out.shape = ", out.shape)
 
 		pred = self.outputMLP(out)
 	

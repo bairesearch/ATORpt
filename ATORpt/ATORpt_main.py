@@ -7,15 +7,24 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-Python 3 and pytorch 1.7+
+Python 3 and pytorch 2.2+
 
-conda create -n pytorchsenv
-source activate pytorchsenv
-conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
-conda install tqdm
-conda install matplotlib
-pip install opencv-python opencv-contrib-python
-pip install kornia
+useATORCserialGeometricHashing:
+	install all ATOR C++ prerequisites
+	conda create --name pytorchsenv2 python=3.8
+	source activate pytorchsenv2
+	pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+	pip3 install tqdm
+	pip3 install transformers
+!useATORCserialGeometricHashing:
+	conda create -n pytorchsenv
+	source activate pytorchsenv
+	conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+	conda install tqdm
+	conda install transformers
+	conda install matplotlib
+	pip install opencv-python opencv-contrib-python
+	pip install kornia
 
 # Usage:
 source activate pytorchsenv
@@ -26,16 +35,20 @@ ATORpt main - train Axis Transformation Object Recognition neural network (ATOR)
 
 ATORpt is a hardware accelerated version of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
-- ATORpt contains various modules for an end-to-end neural model of ATOR
-- ATORpt is designed to perform transformations of all image pixel coordinates in parallel
-- architecture layout provided (implementation incomplete)
 - supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
-- supports classification of 2D image snapshots recreated from transformed mesh coordinates - standard
-	- perform independent, parallelised target prediction of object triangle data
-- supports feature detection via a CNN
-- currently supports 2DOD (2D/image input object data)
-- currently uses MNIST dataset to test affine(/euclidean/projective) invariance
-- also supports useMultKeys - modify transformer to support geometric hashing operations - experimental
+useATORCserialGeometricHashing:
+	- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
+	- requires all ATOR C++ prerequisites 
+!useATORCserialGeometricHashing:
+	- ATORpt contains various modules for an end-to-end neural model of ATOR
+	- ATORpt is designed to perform transformations of all image pixel coordinates in parallel
+	- architecture layout provided (implementation incomplete)
+	- supports classification of 2D image snapshots recreated from transformed mesh coordinates - standard
+		- perform independent, parallelised target prediction of object triangle data
+	- supports feature detection via a CNN
+	- currently supports 2DOD (2D/image input object data)
+	- currently uses MNIST dataset to test affine(/euclidean/projective) invariance
+	- also supports useMultKeys - modify transformer to support geometric hashing operations - experimental
 
 # Future:
 Requires upgrading to support 3DOD (3D input object data)
@@ -44,147 +57,205 @@ Requires upgrading to support 3DOD (3D input object data)
 
 import torch as pt
 import torch.nn as nn
-
-from torch.nn import CrossEntropyLoss
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-
-from torchvision.datasets.mnist import MNIST
-from torchvision.transforms import ToTensor
-
 from tqdm import tqdm
-
 from ATORpt_globalDefs import *
-import ATORpt_ATOR
-import ATORpt_vit
-import ATORpt_operations
+import ATORpt_dataLoader
+if(useStandardVIT):
+	import ATORpt_vitStandard
+	import ATORpt_geometricHashingC
+	import torch.optim as optim
+	from torchvision import transforms, datasets
+	from transformers import ViTFeatureExtractor, ViTForImageClassification
+else:
+	import ATORpt_vitCustom
+	from torch.optim import Adam
+	from torch.nn import CrossEntropyLoss
+	import ATORpt_ATOR
+	import ATORpt_operations
 
-def main():
+device = pt.device('cuda')
 
-	#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
-	
-	trainDataset = MNIST(root='./../datasets', train=True, download=True, transform=ToTensor())
-	testDataset = MNIST(root='./../datasets', train=False, download=True, transform=ToTensor())
+if(useStandardVIT):
+	def mainStandardViT():
+		print("mainStandardViT")
 
-	batchSize = 16 #debug: 2
-	inputShape = (1, 28, 28)   #MNIST defined	#numberOfChannels, imageHeight, imageWidth
-	numberOfOutputDimensions = 10	 #MNIST defined
-	
-	trainDataLoader = DataLoader(trainDataset, shuffle=True, batch_size=batchSize, generator=pt.Generator(device='cuda'))
-	testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
-	
-	numberOfPatchesATOR = inputShape[1]
-	patchSizeATOR = ATORpt_operations.getPatchSize(inputShape, numberOfPatchesATOR)
+		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
 
-	if(useClassificationVIT):
-		if(useParallelisedGeometricHashing):
-			numberOfPatchesVIT = numberOfPatchesATOR
+		if(trainVITfromScratch):
+			VITmodel = ATORpt_vitStandard.ViTForImageClassificationClass()
 		else:
-			numberOfPatchesVIT = 7
-		patchSizeVIT = ATORpt_operations.getPatchSize(inputShape, numberOfPatchesVIT)
-		numberOfInputDimensionsVIT = ATORpt_operations.getInputDim(inputShape, patchSizeVIT)
-		if(useParallelisedGeometricHashing):
-			numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions   #mandatory (currently required for ATORpt_operations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
-		else:
-			numberOfHiddenDimensionsVIT = 20   #arbitrary
-		numberOfHeadsVIT = 1	#requirement; numberOfHiddenDimensionsVIT % numberOfHeadsVIT == 0
+			feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-224-in21k')
+			config = feature_extractor.config
+			config.num_labels = ALOIdatabaseNumberOfImages
+			VITmodel = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224-in21k', config=config)
 
-	device = pt.device('cuda')
-	
-	modelParameters = []
-	if(useParallelisedGeometricHashing):
-		if(not positionalEmbeddingTransformationOnly):
-			ATORmodel = ATORpt_ATOR.ATORmodelClass(inputShape, numberOfPatchesATOR)
-			modelParameters = modelParameters + list(ATORmodel.parameters()) 
-		
-	if(useClassificationSnapshots):
-		pass
-	elif(useClassificationVIT):
-		VITmodel = ATORpt_vit.ViTClass(inputShape, numberOfPatchesVIT, numberOfHiddenDimensionsVIT, numberOfHeadsVIT, numberOfOutputDimensions)
-		modelParameters = modelParameters + list(VITmodel.parameters()) 
+		trainOrTestStandardViT(True, trainDataLoader, VITmodel)
+		trainOrTestStandardViT(False, testDataLoader, VITmodel)
+else:
+	def mainCustomViT():
+		#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
-	numberOfEpochs = 10
-	learningRate = 0.05
+		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
+		inputShape = databaseImageShape
 
-	optimizer = Adam(modelParameters, lr=learningRate)
-	criterion = CrossEntropyLoss()
-	for epoch in tqdm(range(numberOfEpochs), desc="Train"):
-		trainLoss = 0.0
-		for batch in tqdm(trainDataLoader, desc=f"Epoch {epoch + 1}", leave=False):
-			x, y = batch
-			x, y = x.to(device), y.to(device)
-			
-			imagesOrig = x
-			batchSize, numberOfChannels, imageHeightOrig, imageWidthOrig = imagesOrig.shape
-			for r in range(0, numberOfSpatialResolutions):
-				if(useMultipleSpatialResolutions):
-					spatialResolution = 2**r		
-					spatialResolutionTransform = T.Resize((imageHeightOrig//spatialResolution, imageWidthOrig//spatialResolution))
-					images = spatialResolutionTransform(imagesOrig)
-				else:
-					images = imagesOrig
-			
-				if(useParallelisedGeometricHashing):
-					if(positionalEmbeddingTransformationOnly):
-						posEmbeddingsAbsoluteGeoNormalised = ATORpt_operations.getPositionalEmbeddingsAbsolute(numberOfPatchesVIT)	#or numberOfPatchesATOR
-						posEmbeddingsAbsoluteGeoNormalised = pt.unsqueeze(posEmbeddingsAbsoluteGeoNormalised, dim=0)
-						posEmbeddingsAbsoluteGeoNormalised = posEmbeddingsAbsoluteGeoNormalised.repeat(batchSize, 1, 1)
-					else:
-						posEmbeddingsAbsoluteGeoNormalised = ATORmodel(images)
-				else:
-					posEmbeddingsAbsoluteGeoNormalised = None
-					
-				if(useClassificationSnapshots):
-					#recreate a 2D image from the transformed mesh before performing object recognition
-						#perform independent/parallised target prediction of object triangle data
-					print("warning: useClassificationSnapshots is incomplete")
-				elif(useClassificationVIT):
-					y_hat = VITmodel(images, posEmbeddingsAbsoluteGeoNormalised)
+		#ATORpatchSize = ATORpt_operations.getPatchSize(inputShape, ATORnumberOfPatches)
+		patchSizeVITlocal = ATORpt_operations.getPatchSize(inputShape, VITnumberOfPatches)
 
-
-				loss = criterion(y_hat, y) / len(x)
-
-				trainLoss += loss.detach().cpu().item()
-
-				optimizer.zero_grad()
-				loss.backward()
-				optimizer.step()
-
-		print(f"Epoch {epoch + 1}/{numberOfEpochs} loss: {trainLoss:.2f}")
-
-	correct, total = 0, 0
-	testLoss = 0.0
-	for batch in tqdm(testDataLoader, desc="Test"):
-		x, y = batch
-		x, y = x.to(device), y.to(device)
-		
-		imagesOrig = x
-		batchSize, numberOfChannels, imageHeightOrig, imageWidthOrig = imagesOrig.shape
-		for r in range(0, numberOfSpatialResolutions):
-			if(useMultipleSpatialResolutions):
-				spatialResolution = 2**r		
-				spatialResolutionTransform = T.Resize((imageHeightOrig//spatialResolution, imageWidthOrig//spatialResolution))
-				images = spatialResolutionTransform(imagesOrig)
+		if(useClassificationVIT):
+			numberOfInputDimensionsVIT = ATORpt_operations.getInputDim(inputShape, patchSizeVITlocal)
+			if(useParallelisedGeometricHashing):
+				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions   #mandatory (currently required for ATORpt_operations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
 			else:
-				images = imagesOrig
-	
-			posEmbeddingsAbsoluteGeoNormalised = ATORmodel(images)
+				numberOfHiddenDimensionsVIT = 20   #arbitrary
+			numberOfHeadsVIT = 1	#requirement; numberOfHiddenDimensionsVIT % numberOfHeadsVIT == 0
 
-			if(useClassificationSnapshots):
-				print("warning: useClassificationSnapshots is incomplete")	
-			elif(useClassificationVIT):
-				y_hat = VITmodel(images, posEmbeddingsAbsoluteGeoNormalised)
-									
-			loss = criterion(y_hat, y) / len(x)
-			testLoss += loss.detach().cpu().item()
+		modelParameters = []
+		ATORmodel = None
+		if(useParallelisedGeometricHashing):
+			if(not positionalEmbeddingTransformationOnly):
+				ATORmodel = ATORpt_ATOR.ATORmodelClass(inputShape, ATORnumberOfPatches)
+				modelParameters = modelParameters + list(ATORmodel.parameters()) 
+		if(useClassificationSnapshots):
+			VITmodel = None
+		if(useClassificationVIT):
+			VITmodel = ATORpt_vitCustom.ViTClass(inputShape, VITnumberOfPatches, numberOfHiddenDimensionsVIT, numberOfHeadsVIT, numberOfOutputDimensions)
+			modelParameters = modelParameters + list(VITmodel.parameters()) 
 
-			correct += pt.sum(pt.argmax(y_hat, dim=1) == y).detach().cpu().item()
-			total += len(x)
+		trainOrTestCustomViT(True, trainDataLoader, ATORmodel, VITmodel, modelParameters)
+		trainOrTestCustomViT(False, testDataLoader, ATORmodel, VITmodel, modelParameters)
 
-	print(f"Test loss: {testLoss:.2f}")
-	print(f"Test accuracy: {correct / total * 100:.2f}%")
+if(useStandardVIT):
+	def trainOrTestStandardViT(train, dataLoader, VITmodel):
+		if(train):
+			learningRate = 1e-4
+			VITmodel.train()
+			desc="Train"
+			numberOfEpochs = trainNumberOfEpochs
+			# Freeze all layers except the classification head
+			for param in VITmodel.parameters():
+				param.requires_grad = False
+			for param in VITmodel.classification_head.parameters():
+				param.requires_grad = True
+			criterion = nn.CrossEntropyLoss()
+			optimizer = optim.Adam(VITmodel.parameters(), lr=learningRate)
+		else:
+			model.eval()
+			correct = 0
+			total = 0
+			desc="Test"
+			numberOfEpochs = 1
+
+		for epoch in tqdm(range(numberOfEpochs), desc=desc):
+			running_loss = 0.0
+			correct = 0
+			total = 0
+			print("epoch = ", epoch)
+			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
+				print("batch = ", batch)
+				if(databaseName == "ALOI-VIEW"):
+					imageIndex, viewIndex = batch
+					labels = imageIndex
+					imageIndex = imageIndex.item()
+					viewIndex = viewIndex.item()
+					imagePath = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndex, viewIndex)
+					transformedPatches = ATORpt_geometricHashingC.generateATORpatches(imagePath, train)	#normalisedsnapshots
+
+				transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
+				artificialInputImages = transformedPatches.view(batchSize, VITnumberOfChannels, VITimageSize, VITimageSize)
+				print("labels = ", labels)
+				print("transformedPatches.shape = ", transformedPatches.shape)
+				if(train):
+					optimizer.zero_grad()
+					logits = VITmodel(artificialInputImages)
+					loss = criterion(logits, labels)
+					loss.backward()
+					optimizer.step()
+					running_loss += loss.item()
+					_, predicted = pt.max(logits, 1)
+					total += labels.size(0)
+					correct += (predicted == labels).sum().item()
+				else:
+					logits = VITmodel(artificialInputImages)
+					_, predicted = pt.max(logits, 1)
+					total += labels.size(0)
+					correct += (predicted == labels).sum().item()
+			if(train):
+				train_loss = running_loss / len(dataLoader)
+				train_acc = correct / total
+				print(f'Epoch [{epoch+1}/{numberOfEpochs}], Loss: {train_loss:.4f}, Accuracy: {100*train_acc:.2f}%')
+		if(not train):
+			test_acc = correct / total
+			print(f'Test Accuracy: {100*test_acc:.2f}%')
+else:
+	def trainOrTestCustomViT(train, dataLoader, ATORmodel, VITmodel, modelParameters):
+		#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
+
+		if(train):
+			learningRate = 0.05
+			optimizer = Adam(modelParameters, lr=learningRate)
+			criterion = CrossEntropyLoss()
+			desc="Train"
+			numberOfEpochs = trainNumberOfEpochs
+		else:
+			correct, total = 0, 0
+			testLoss = 0.0
+			desc="Test"
+			numberOfEpochs = 1
+		for epoch in tqdm(range(numberOfEpochs), desc=desc):
+			trainLoss = 0.0
+			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
+				if(databaseName == "MNIST"):
+					x, y = batch
+					x, y = x.to(device), y.to(device)
+					imagesLarge = x
+					batchSize, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
+				for r in range(0, numberOfSpatialResolutions):
+					if(databaseName == "MNIST"):
+						if(useMultipleSpatialResolutions):
+							spatialResolution = 2**r		
+							spatialResolutionTransform = T.Resize((imageHeightLarge//spatialResolution, imageWidthLarge//spatialResolution))
+							images = spatialResolutionTransform(imagesLarge)
+						else:
+							images = imagesLarge
+
+					if(useParallelisedGeometricHashing):
+						if(positionalEmbeddingTransformationOnly):
+							posEmbeddingsAbsoluteGeoNormalised = ATORpt_operations.getPositionalEmbeddingsAbsolute(VITnumberOfPatches)	#or ATORnumberOfPatches
+							posEmbeddingsAbsoluteGeoNormalised = pt.unsqueeze(posEmbeddingsAbsoluteGeoNormalised, dim=0)
+							posEmbeddingsAbsoluteGeoNormalised = posEmbeddingsAbsoluteGeoNormalised.repeat(batchSize, 1, 1)
+						else:
+							posEmbeddingsAbsoluteGeoNormalised = ATORmodel(images)
+					else:
+						posEmbeddingsAbsoluteGeoNormalised = None
+
+					if(useClassificationSnapshots):
+						#recreate a 2D image from the transformed mesh before performing object recognition
+							#perform independent/parallised target prediction of object triangle data
+						print("warning: useClassificationSnapshots is incomplete")
+					elif(useClassificationVIT):
+						y_hat = VITmodel(images, posEmbeddingsAbsoluteGeoNormalised)
+					if(train):
+						loss = criterion(y_hat, y) / len(x)
+						trainLoss += loss.detach().cpu().item()
+						optimizer.zero_grad()
+						loss.backward()
+						optimizer.step()
+					else:
+						loss = criterion(y_hat, y) / len(x)
+						testLoss += loss.detach().cpu().item()
+						correct += pt.sum(pt.argmax(y_hat, dim=1) == y).detach().cpu().item()
+						total += len(x)
+			if(train):
+				print(f"Epoch {epoch + 1}/{numberOfEpochs} loss: {trainLoss:.2f}")
+		if(not train):
+			print(f"Test loss: {testLoss:.2f}")
+			print(f"Test accuracy: {correct / total * 100:.2f}%")
 
 
 
+			
 if __name__ == '__main__':
-	main()
+	if(useStandardVIT):
+		mainStandardViT()
+	else:
+		mainCustomViT()
