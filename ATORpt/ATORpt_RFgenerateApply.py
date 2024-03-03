@@ -23,18 +23,21 @@ import torch.nn.functional as F
 import numpy as np
 import copy
 
+from ATORpt_RFglobalDefs import *
 import ATORpt_RFellipseProperties
 import ATORpt_RFellipse
 import ATORpt_RFtri
 import ATORpt_RFfilter
 import ATORpt_RFproperties
 import ATORpt_RFoperations
+if(RFuseParallelProcessedCNN):
+	import ATORpt_RFCNN
 
 class RFneuronClass():
 	def __init__(self, resolutionProperties, RFproperties, RFfilter, RFImage):
 		self.resolutionIndex = resolutionProperties.resolutionIndex
 		self.RFproperties = RFproperties
-		# if(debugSaveRFfiltersAndImageSegments):
+		# if(RFsaveRFfiltersAndImageSegments):
 		self.RFfilter = RFfilter
 		self.RFneuronParents = []
 		self.RFneuronComponents = []
@@ -42,9 +45,10 @@ class RFneuronClass():
 
 def normaliseRFComponentWRTparent(resolutionProperties, neuronComponent, RFpropertiesParent):
 	neuronComponent.RFpropertiesNormalisedWRTparent = ATORpt_RFproperties.generateRFtransformedProperties(neuronComponent, RFpropertiesParent)
-	if resolutionProperties.debugSaveRFfiltersAndImageSegments:
+	if RFsaveRFfiltersAndImageSegments:
 		neuronComponent.RFfilterNormalisedWRTparent = ATORpt_RFfilter.transformRFfilterTF(neuronComponent.RFfilter, RFpropertiesParent)
-		neuronComponent.RFImageNormalisedWRTparent = ATORpt_RFfilter.transformRFfilterTF(neuronComponent.RFImage, RFpropertiesParent)
+		if(RFsaveRFimageSegments):
+			neuronComponent.RFImageNormalisedWRTparent = ATORpt_RFfilter.transformRFfilterTF(neuronComponent.RFImage, RFpropertiesParent)
 
 
 def childRFoverlapsParentRF(neuronRFpropertiesNormalisedGlobal, lowerNeuronRFpropertiesNormalisedGlobal):
@@ -74,28 +78,35 @@ def normaliseLocalRFproperties(RFproperties):
 
 
 def generateRFfilters(resolutionProperties, generateRFfiltersEllipse, generateRFfiltersTri):
-	RFfiltersList = []
-	RFfiltersPropertiesList = []
-
+	RFfiltersFeatureTypeList = []
+	RFfiltersPropertiesFeatureTypeList = []
 	if generateRFfiltersEllipse:
-		ATORpt_RFellipse.generateRFfiltersEllipse(resolutionProperties, RFfiltersList, RFfiltersPropertiesList)
+		RFfiltersList, RFfiltersPropertiesList = ATORpt_RFellipse.generateRFfiltersEllipse(resolutionProperties)
+		RFfiltersFeatureTypeList.append(RFfiltersList)
+		RFfiltersPropertiesFeatureTypeList.append(RFfiltersPropertiesList)
 	if generateRFfiltersTri:
-		ATORpt_RFtri.generateRFfiltersTri(resolutionProperties, RFfiltersList, RFfiltersPropertiesList)
+		RFfiltersList, RFfiltersPropertiesList = ATORpt_RFtri.generateRFfiltersTri(resolutionProperties)
+		RFfiltersFeatureTypeList.append(RFfiltersList)
+		RFfiltersPropertiesFeatureTypeList.append(RFfiltersPropertiesList)
+	return RFfiltersFeatureTypeList, RFfiltersPropertiesFeatureTypeList
 
-	return RFfiltersList, RFfiltersPropertiesList
 
-
-def applyRFfilters(resolutionProperties, inputImageSegments, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2):
+def applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImageSegments=None, inputImage=None, RFfiltersConv=None):
 	# perform convolution for each filter size;
 	axesLengthMax, filterRadius, filterSize = ATORpt_RFfilter.getFilterDimensions(resolutionProperties)
-
 	RFpropertiesList = []
-
-	inputImageSegmentsPixelsFlattened = inputImageSegments.view(inputImageSegments.shape[0], -1)
-	RFfiltersTensorPixelsFlattened = RFfiltersTensor.view(RFfiltersTensor.shape[0], -1)
-
-	filterApplicationResult = pt.matmul(inputImageSegmentsPixelsFlattened, RFfiltersTensorPixelsFlattened.t())
-	filterApplicationResult = filterApplicationResult.view(-1)
+	
+	if(RFuseParallelProcessedCNN):
+		isColourFilter = RFfiltersPropertiesList2[0].isColourFilter
+		numberOfKernels = RFfiltersPropertiesList2[0].numberOfKernels
+		#print("isColourFilter = ", isColourFilter)
+		#print("numberOfKernels = ", numberOfKernels)
+		filterApplicationResult = ATORpt_RFCNN.applyCNNfilters(inputImage, RFfiltersConv, isColourFilter, numberOfKernels)	#dim: numberOfImageSegments*numberOfKernels
+	else:
+		inputImageSegmentsPixelsFlattened = inputImageSegments.view(inputImageSegments.shape[0], -1)
+		RFfiltersTensorPixelsFlattened = RFfiltersTensor.view(RFfiltersTensor.shape[0], -1)
+		filterApplicationResult = pt.matmul(inputImageSegmentsPixelsFlattened, RFfiltersTensorPixelsFlattened.t())
+		filterApplicationResult = filterApplicationResult.view(-1)	#dim: numberOfImageSegments*numberOfKernels
 
 	isColourFilter = RFfiltersPropertiesList2[0].isColourFilter
 	numberOfDimensions = RFfiltersPropertiesList2[0].numberOfDimensions
@@ -105,7 +116,7 @@ def applyRFfilters(resolutionProperties, inputImageSegments, RFfiltersTensor, nu
 
 	if not ATORpt_RFoperations.isTensorEmpty(filterApplicationResultThresholdIndices):
 		filterApplicationResultThresholded = filterApplicationResult[filterApplicationResultThresholdIndices]
-
+		
 		filterApplicationResultThresholdIndicesList = filterApplicationResultThresholdIndices.tolist()
 		filterApplicationResultThresholdedList = filterApplicationResultThresholded.tolist()
 
@@ -114,7 +125,8 @@ def applyRFfilters(resolutionProperties, inputImageSegments, RFfiltersTensor, nu
 			centerCoordinates1, centerCoordinates2 = divmod(imageSegmentIndex, resolutionProperties.imageSize[1])
 			centerCoordinates = (centerCoordinates1, centerCoordinates2)
 
-			RFImage = inputImageSegments[imageSegmentIndex]
+			if(not RFuseParallelProcessedCNN):
+				RFImage = inputImageSegments[imageSegmentIndex]
 			RFfiltersProperties = RFfiltersPropertiesList2[RFfilterIndex]
 			RFproperties = copy.deepcopy(RFfiltersProperties)
 			RFproperties.centerCoordinates = centerCoordinates

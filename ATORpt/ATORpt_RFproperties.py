@@ -22,29 +22,16 @@ import numpy as np
 import cv2
 import copy
 
+from ATORpt_RFglobalDefs import *
 import ATORpt_RFellipseProperties
 import ATORpt_RFoperations
 
-RFtypeEllipse = 1
-RFtypeTri = 2
-
-RFfeatureTypeEllipse = 1
-RFfeatureTypeCircle = 2
-RFfeatureTypePoint = 3
-RFfeatureTypeCorner = 4
-
-maximumAxisLengthMultiplierDefault = 4
-
-minimumEllipseAxisLength = 1
-receptiveFieldOpponencyAreaFactorEllipse = 2.0
-
-lowResultFilterPosition = True
 
 class RFpropertiesClass(ATORpt_RFellipseProperties.EllipsePropertiesClass):
 	def __init__(self, resolutionIndex, resolutionFactor, imageSize, RFtype, centerCoordinates, axesLength, angle, colour):
 		self.resolutionIndex = resolutionIndex
 		self.resolutionFactor = resolutionFactor
-		self.imageSize = imageSize
+		self.imageSize = imageSize	#stored as width,height (note torchvision, openCV, TFA, etc typically use a height,width standard so imageSize parameters are often swapped when passed to functions)
 		self.RFtype = RFtype
 		super().__init__(centerCoordinates, axesLength, angle, colour)
 		if RFtype == RFtypeTri:
@@ -53,6 +40,7 @@ class RFpropertiesClass(ATORpt_RFellipseProperties.EllipsePropertiesClass):
 		self.numberOfDimensions = 2
 		self.filterIndex = None
 		self.imageSegmentIndex = None
+		self.numberOfKernels = None	#numberRFfiltersInTensor
 
 def deriveTriVertexCoordinatesFromArtificialEllipseProperties(axesLength, angle):
 	angle1 = angle
@@ -188,9 +176,9 @@ def saveRFFilterImage(RFfilter, RFfilterImageFilename):
 	ATORpt_RFoperations.saveImage(RFfilterImageFilename, RFfilterNP)
 
 def getFilterDimensions(resolutionProperties, maximumAxisLengthMultiplier=maximumAxisLengthMultiplierDefault, receptiveFieldOpponencyAreaFactor=receptiveFieldOpponencyAreaFactorEllipse):
-	axesLengthMax1 = minimumEllipseAxisLength * maximumAxisLengthMultiplier
-	axesLengthMax2 = minimumEllipseAxisLength * maximumAxisLengthMultiplier
-	filterRadius = int(max(axesLengthMax1 * receptiveFieldOpponencyAreaFactor, axesLengthMax2 * receptiveFieldOpponencyAreaFactor))
-	filterSize = (int(filterRadius * 2), int(filterRadius * 2))
+	axesLengthMax1 = minimumEllipseAxisLength * maximumAxisLengthMultiplier	#1*4
+	axesLengthMax2 = minimumEllipseAxisLength * maximumAxisLengthMultiplier	#1*4
+	filterRadius = int(max(axesLengthMax1 * receptiveFieldOpponencyAreaFactor, axesLengthMax2 * receptiveFieldOpponencyAreaFactor))	#4*2,4*2
+	filterSize = (int(filterRadius * 2), int(filterRadius * 2))	#8*2,8*2
 	axesLengthMax = (axesLengthMax1, axesLengthMax2)
 	return axesLengthMax, filterRadius, filterSize

@@ -16,6 +16,9 @@ useATORCserialGeometricHashing:
 	pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 	pip3 install tqdm
 	pip3 install transformers
+	pip3 install click
+	pip3 install opencv-python opencv-contrib-python
+	pip3 install kornia
 !useATORCserialGeometricHashing:
 	conda create -n pytorchsenv
 	source activate pytorchsenv
@@ -27,7 +30,7 @@ useATORCserialGeometricHashing:
 	pip install kornia
 
 # Usage:
-source activate pytorchsenv
+source activate pytorchsenv2
 python3 ATORpt_main.py
 
 # Description:
@@ -36,10 +39,10 @@ ATORpt main - train Axis Transformation Object Recognition neural network (ATOR)
 ATORpt is a hardware accelerated version of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
 - supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
-useATORCserialGeometricHashing:
+- useATORCserialGeometricHashing:
 	- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
 	- requires all ATOR C++ prerequisites 
-!useATORCserialGeometricHashing:
+- !useATORCserialGeometricHashing:
 	- ATORpt contains various modules for an end-to-end neural model of ATOR
 	- ATORpt is designed to perform transformations of all image pixel coordinates in parallel
 	- architecture layout provided (implementation incomplete)

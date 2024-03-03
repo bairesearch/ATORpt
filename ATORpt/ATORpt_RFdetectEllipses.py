@@ -25,18 +25,10 @@ import copy
 #import click
 import numpy as np
 from collections import OrderedDict
+
+from ATORpt_RFglobalDefs import *
 import ATORpt_RFoperations
 import ATORpt_RFellipseProperties
-
-
-resolutionIndexFirst = 1
-
-numberOfResolutions = 6	#x; lowest res sample: 1/(2^x)
-minimumEllipseAxisLength = 2
-ellipseCenterCoordinatesResolution = 1	#pixels (at resolution r)
-ellipseAxesLengthResolution = 1	#pixels (at resolution r)
-ellipseAngleResolution = 10	#degrees
-ellipseColourResolution = 64	#bits
 
 def detectEllipsesGaussianBlur(inputimagefilename):
 	
@@ -52,9 +44,9 @@ def detectEllipsesGaussianBlur(inputimagefilename):
 	
 	testEllipseIndex = 0
 	
-	for resolutionIndex in range(resolutionIndexFirst, numberOfResolutions):
+	for resolutionIndex in range(ellipseResolutionIndexFirst, ellipseNumberOfResolutions):
 		
-		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, resolutionIndexFirst, numberOfResolutions, inputImageSize)
+		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
 	
 		#gaussianBlurKernelSize = (resolutionIndexReverse*2) - 1		
 		gaussianBlurKernelSize = (resolutionFactor*2) - 1	#ensure kernel size is odd
@@ -106,9 +98,9 @@ def detectEllipsesTrialResize(inputimagefilename):
 	
 	testEllipseIndex = 0
 	
-	for resolutionIndex in range(1, numberOfResolutions):
+	for resolutionIndex in range(ellipseResolutionIndexFirst, ellipseNumberOfResolutions):
 	
-		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, resolutionIndexFirst, numberOfResolutions, inputImageSize)
+		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
 
 		resolutionFactorInverse = 1.0/(resolutionFactor)
 		#print("resolutionIndex = ", resolutionIndex, ", resolutionFactor = ", resolutionFactor)
@@ -131,8 +123,8 @@ def detectEllipsesTrialResize(inputimagefilename):
 		
 		for centerCoordinates1 in range(0, imageWidth, ellipseCenterCoordinatesResolution):
 			for centerCoordinates2 in range(0, imageHeight, ellipseCenterCoordinatesResolution):
-				for axesLength1 in range(minimumEllipseAxisLength, axesLengthMax1, ellipseAxesLengthResolution):
-					for axesLength2 in range(minimumEllipseAxisLength, axesLengthMax2, ellipseAxesLengthResolution):
+				for axesLength1 in range(ellipseMinimumEllipseAxisLength, axesLengthMax1, ellipseAxesLengthResolution):
+					for axesLength2 in range(ellipseMinimumEllipseAxisLength, axesLengthMax2, ellipseAxesLengthResolution):
 						for angle in range(0, 360, ellipseAngleResolution):	#degrees
 							for colour1 in range(0, 256, ellipseColourResolution):
 								for colour2 in range(0, 256, ellipseColourResolution):

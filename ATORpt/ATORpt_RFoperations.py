@@ -24,26 +24,16 @@ import cv2
 import math
 from PIL import Image
 
-opencvVersion = 3  # or 4
-
-storeRFfiltersValuesAsFractions = True  # store RFfilters values as fractions (multipliers) rather than colours (additive)
-
-rgbMaxValue = 255.0
-rgbNumChannels = 3
-
+from ATORpt_RFglobalDefs import *
 
 class RFresolutionProperties:
-	def __init__(self, resolutionIndex, resolutionIndexFirst, numberOfResolutions, imageSizeBase, debugVerbose,
-				 debugSaveRFfiltersAndImageSegments):
+	def __init__(self, resolutionIndex, resolutionIndexFirst, numberOfResolutions, imageSizeBase):
 		self.resolutionIndex = resolutionIndex
 		self.resolutionIndexFirst = resolutionIndexFirst
 		self.numberOfResolutions = numberOfResolutions
 		self.imageSizeBase = imageSizeBase
 
 		self.resolutionFactor, self.resolutionFactorReverse, self.imageSize = getImageDimensionsR(self)
-
-		self.debugVerbose = debugVerbose
-		self.debugSaveRFfiltersAndImageSegments = debugSaveRFfiltersAndImageSegments
 
 
 def modifyTuple(t, index, value):
@@ -147,18 +137,19 @@ def calculateRelativePosition2D(angle, hyp):
 
 def getImageDimensionsR(resolutionProperties):
 	# for ATORpt_RFdetectEllipses:
-	resolutionIndexReverse = resolutionProperties.numberOfResolutions - resolutionProperties.resolutionIndex + \
-							  resolutionProperties.resolutionIndexFirst  # CHECKTHIS
-	resolutionFactor = 2 ** resolutionIndexReverse
+	resolutionIndexReverse = resolutionProperties.numberOfResolutions - resolutionProperties.resolutionIndex + resolutionProperties.resolutionIndexFirst  # CHECKTHIS
+	if(ensureMinimumImageSizeGreaterThanRFsize):
+		resolutionFactorBase = 4	#minimum imageSize must be >= kernelSize
+		resolutionFactor = 2**resolutionIndexReverse / resolutionFactorBase
+	else:
+		resolutionFactor = 2 ** resolutionIndexReverse
 
 	# for ATORpt:
-	resolutionFactorReverse = 2 ** (
-				resolutionProperties.resolutionIndex + 1 - resolutionProperties.resolutionIndexFirst)  # CHECKTHIS
+	resolutionFactorReverse = 2 ** (resolutionProperties.resolutionIndex + 1 - resolutionProperties.resolutionIndexFirst)  # CHECKTHIS
 	resolutionFactorInverse = 1.0 / (resolutionFactor)
 	# print("resolutionIndex = ", resolutionIndex, ", resolutionFactor = ", resolutionFactor)
 
-	imageSize = (int(resolutionProperties.imageSizeBase[0] / resolutionFactor),
-				 int(resolutionProperties.imageSizeBase[1] / resolutionFactor))
+	imageSize = (int(resolutionProperties.imageSizeBase[0] / resolutionFactor), int(resolutionProperties.imageSizeBase[1] / resolutionFactor))
 
 	# print("imageSize = ", imageSize)
 

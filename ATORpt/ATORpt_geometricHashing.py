@@ -31,7 +31,7 @@ class GeometricHashingClass(nn.Module):
 
 		super(GeometricHashingClass, self).__init__()
 		  
-		self.cosSim = pt.nn.CosineSimilarity(dim=1)  #CHECKTHIS: dim=1
+		self.cosSim = torch.nn.CosineSimilarity(dim=1)  #CHECKTHIS: dim=1
 
 		self.numberOfGeometricDimensions = numberOfGeometricDimensions	#2D object data (2DOD)
 		self.geometricHashingNumKeypoints = self.numberOfGeometricDimensions+1	#2DOD: 3: 3DOD: 4   #number of features to use to perform geometric hashing (depends on input object data dimensions; 2DOD/3DOD)
@@ -43,7 +43,7 @@ class GeometricHashingClass(nn.Module):
 				if(useGeometricHashingProbabilisticKeypointsSoftMax):
 					self.softmax = nn.Softmax(dim=-1)
 				if(useGeometricHashingProbabilisticKeypointsNonlinearity):
-					self.activationFunction = pt.nn.ReLU(inplace=False)
+					self.activationFunction = torch.nn.ReLU(inplace=False)
 				
 				inputLayerNumTokens = ATORpt_operations.getInputLayerNumTokens(numberOfPatches)
 				self.numberOfAttentionDimensions = 1

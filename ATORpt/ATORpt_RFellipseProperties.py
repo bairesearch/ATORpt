@@ -21,11 +21,8 @@ import numpy as np
 import cv2
 import copy
 
+from ATORpt_RFglobalDefs import *
 import ATORpt_RFoperations
-
-ellipseAngleResolution = 10	#degrees
-minimumEllipseFitErrorRequirement = 1500.0	#calibrate
-
 
 
 class EllipsePropertiesClass():	#or EllipsoidProperties

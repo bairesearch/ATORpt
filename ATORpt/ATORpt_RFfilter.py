@@ -23,27 +23,25 @@ import torch.nn.functional as F
 import numpy as np
 import copy
 
+from ATORpt_RFglobalDefs import *
 import ATORpt_pta_image as pta_image
 import ATORpt_RFproperties
 import ATORpt_RFellipse
 import ATORpt_RFtri
 import ATORpt_RFoperations
 
-minimumFilterRequirement = 1.5  # CHECKTHIS: calibrate  # matched values fraction  # theoretical value: 0.95
 
-# if(debugSaveRFfiltersAndImageSegments):
-RFfilterImageTransformFillValue = 0.0
+def calculateFilterApplicationResultThreshold(filterApplicationResult, minimumFilterRequirement, filterSize, isColourFilter, numberOfDimensions, RFtype):
+	minimumFilterRequirementLocal = minimumFilterRequirement * calculateFilterPixels(filterSize, numberOfDimensions, RFtype)
 
-
-def calculateFilterApplicationResultThreshold(filterApplicationResult, minimumFilterRequirement, filterSize,
-											  isColourFilter, numberOfDimensions, RFtype):
-	minimumFilterRequirementLocal = minimumFilterRequirement * calculateFilterPixels(filterSize, numberOfDimensions,
-																					 RFtype)
-
-	# if(isColourFilter):
-	# 	minimumFilterRequirementLocal = minimumFilterRequirementLocal*ATORpt_RFoperations.rgbNumChannels*ATORpt_RFoperations.rgbNumChannels  # CHECKTHIS  # not required as assume filter colours will be normalised to the maximum value of a single rgb channel?
-	if not ATORpt_RFoperations.storeRFfiltersValuesAsFractions:
-		minimumFilterRequirementLocal = minimumFilterRequirementLocal * (ATORpt_RFoperations.rgbMaxValue * ATORpt_RFoperations.rgbMaxValue)  # rgbMaxValue of both imageSegment and RFfilter
+	if(RFuseParallelProcessedCNN):
+		pass
+		#TODO: minimumFilterRequirementLocal REQUIRES CALIBRATION based on CNN operation
+	else:
+		# if(isColourFilter):
+		# 	minimumFilterRequirementLocal = minimumFilterRequirementLocal*rgbNumChannels*rgbNumChannels  # CHECKTHIS  # not required as assume filter colours will be normalised to the maximum value of a single rgb channel?
+		if not ATORpt_RFoperations.storeRFfiltersValuesAsFractions:
+			minimumFilterRequirementLocal = minimumFilterRequirementLocal * (ATORpt_RFoperations.rgbMaxValue * ATORpt_RFoperations.rgbMaxValue)  # rgbMaxValue of both imageSegment and RFfilter
 
 	print("minimumFilterRequirementLocal = ", minimumFilterRequirementLocal)
 	print("pt.max(filterApplicationResult) = ", pt.max(filterApplicationResult))
@@ -80,17 +78,20 @@ def transformRFfilterTF(RFfilter, RFpropertiesParent):
 
 def transformRFfilterTF2D(RFfilter, centerCoordinates, axesLength, angle):
 	# CHECKTHIS: 2D code only;
-	# RFfilterTransformed = pt.unsqueeze(RFfilterTransformed, 0)  # add extra dimension for num_images
+	RFfilter = RFfilter.permute(2, 0, 1)	#ensure channels dim is first
+	#RFfilterTransformed = pt.unsqueeze(RFfilter, 0)  # add batch dim
 	RFfilterTransformed = RFfilter
 	angleRadians = ATORpt_RFoperations.convertDegreesToRadians(angle)
-	RFfilterTransformed = pta_image.rotate(RFfilterTransformed, angleRadians, fill_value=RFfilterImageTransformFillValue)
+	#print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
+	RFfilterTransformed = pta_image.rotate(RFfilterTransformed, angleRadians, fillValue=RFfilterImageTransformFillValue)
 	centerCoordinatesList = [float(x) for x in list(centerCoordinates)]
-	RFfilterTransformed = pta_image.translate(RFfilterTransformed, centerCoordinatesList, fill_value=RFfilterImageTransformFillValue)
+	RFfilterTransformed = pta_image.translate(RFfilterTransformed, centerCoordinatesList, fillValue=RFfilterImageTransformFillValue)
 	# print("axesLength = ", axesLength)
-	# print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
-	RFfilterTransformed = tfa_image.scale(RFfilterTransformed, axesLength, fill_value=RFfilterImageTransformFillValue)
-	# print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
+	#print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
+	RFfilterTransformed = pta_image.scale(RFfilterTransformed, axesLength, fillValue=RFfilterImageTransformFillValue)
+	#print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
 	RFfilterTransformed = pt.squeeze(RFfilterTransformed)
+	RFfilter = RFfilter.permute(1, 2, 0)	#ensure channels dim is last
 	return RFfilterTransformed
 
 def rotateRFfilterTF(RFfilter, RFproperties):

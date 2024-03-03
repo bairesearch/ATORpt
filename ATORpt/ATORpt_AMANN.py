@@ -34,17 +34,17 @@ class LayerAdditiveMultiplicativeClass(nn.Module):
 			self.inputFeaturesMultiplicative = inputFeatures
 			self.outputFeaturesMultiplicative = outputFeatures//2
 
-			self.Wa = pt.nn.Parameter(pt.randn(self.inputFeaturesAdditive, self.outputFeaturesAdditive))
-			self.Wm = pt.nn.Parameter(pt.randn(self.inputFeaturesMultiplicative, self.outputFeaturesMultiplicative))
+			self.Wa = torch.nn.Parameter(pt.randn(self.inputFeaturesAdditive, self.outputFeaturesAdditive))
+			self.Wm = torch.nn.Parameter(pt.randn(self.inputFeaturesMultiplicative, self.outputFeaturesMultiplicative))
 			if(self.useBias):
-				self.Ba = pt.nn.Parameter(pt.zeros(self.outputFeaturesAdditive))  #randn
-				self.Bm = pt.nn.Parameter(pt.zeros(self.outputFeaturesMultiplicative))	#randn
+				self.Ba = torch.nn.Parameter(pt.zeros(self.outputFeaturesAdditive))  #randn
+				self.Bm = torch.nn.Parameter(pt.zeros(self.outputFeaturesMultiplicative))	#randn
 		else:
-			self.W = pt.nn.Parameter(pt.randn(self.inputFeatures, self.outputFeatures))
+			self.W = torch.nn.Parameter(pt.randn(self.inputFeatures, self.outputFeatures))
 			if(self.useBias):
-				self.B = pt.nn.Parameter(pt.zeros(self.outputFeatures))   #randn
+				self.B = torch.nn.Parameter(pt.zeros(self.outputFeatures))   #randn
  
-		self.activationFunction = pt.nn.ReLU()
+		self.activationFunction = torch.nn.ReLU()
 
 	def forward(self, input):
 		x = input
