@@ -96,7 +96,9 @@ def prepareRFhierarchyAccelerated():
 	
 def updateRFhierarchyAccelerated(RFfiltersListAllRes, RFfiltersPropertiesListAllRes, ATORneuronListAllLayers, inputimagefilename):
 	
+	print("imageSizeBase = ", imageSizeBase)
 	inputImage = cv2.imread(inputimagefilename)
+
 	inputImage = cv2.resize(inputImage, imageSizeBase)
 	inputImageRGB = cv2.cvtColor(inputImage, cv2.COLOR_BGR2RGB)
 	inputImageGray = cv2.cvtColor(inputImageRGB, cv2.COLOR_RGB2GRAY)
@@ -149,7 +151,15 @@ def initialiseATORneuronListArray(resolutionProperties):
 	ATORneuronListArray = [[None for _ in range(size[1])] for _ in range(size[0])]
 	return ATORneuronListArray
 
-if(not RFuseParallelProcessedCNN):
+if(RFuseParallelProcessedCNN):
+	def generateImageSegment(resolutionProperties, RFproperties, inputImageTensor, isColourFilter):
+		filterRadius = RFproperties.imageSize[0]
+		centerCoordinates = (RFproperties.imageSegmentIndex//resolutionProperties.imageSize[1], RFproperties.imageSegmentIndex%resolutionProperties.imageSize[1])
+		inputImageSegment = generateImageSegmentBand(resolutionProperties, centerCoordinates, filterRadius, inputImageTensor)
+		inputImageSegment = inputImageSegment[0]
+		inputImageSegment = inputImageSegment.permute(1, 2, 0)	#ensure channels dim is last #match RFfilter dims: height, width, channels	#see transformRFfilterTF2D
+		return inputImageSegment
+else:
 	def generateImageSegments(resolutionProperties, inputImageRGBTensor, inputImageGrayTensor):
 		inputImageRGBSegmentsList = []
 		inputImageGraySegmentsList = []
@@ -169,13 +179,8 @@ if(not RFuseParallelProcessedCNN):
 		for centerCoordinates1 in range(0, resolutionProperties.imageSize[0], ellipseCenterCoordinatesResolution):
 			for centerCoordinates2 in range(0, resolutionProperties.imageSize[1], ellipseCenterCoordinatesResolution):
 				centerCoordinates = (centerCoordinates1, centerCoordinates2)
-				allFilterCoordinatesWithinImageResult, imageSegmentStart, imageSegmentEnd = ATORpt_RFfilter.allFilterCoordinatesWithinImage(centerCoordinates, filterRadius, resolutionProperties.imageSize)
-				inputImageRGBSegment = inputImageRGBTensor[:, :, imageSegmentStart[0]:imageSegmentEnd[0], imageSegmentStart[1]:imageSegmentEnd[1]]
-				inputImageGraySegment = inputImageGrayTensor[:, :, imageSegmentStart[0]:imageSegmentEnd[0], imageSegmentStart[1]:imageSegmentEnd[1]]
-				#print("inputImageRGBSegment.shape = ", inputImageRGBSegment.shape)
-				if(ATORpt_RFoperations.storeRFfiltersValuesAsFractions):
-					inputImageRGBSegment = pt.divide(inputImageRGBSegment, ATORpt_RFoperations.rgbMaxValue)
-					inputImageGraySegment = pt.divide(inputImageGraySegment, ATORpt_RFoperations.rgbMaxValue)
+				inputImageRGBSegment = generateImageSegmentBand(resolutionProperties, centerCoordinates, filterRadius, inputImageRGBTensor)
+				inputImageGraySegment = generateImageSegmentBand(resolutionProperties, centerCoordinates, filterRadius, inputImageGrayTensor)
 				inputImageRGBSegmentsList.append(inputImageRGBSegment)
 				inputImageGraySegmentsList.append(inputImageGraySegment)
 				imageSegmentIndex = imageSegmentIndex + 1
@@ -185,7 +190,13 @@ if(not RFuseParallelProcessedCNN):
 
 		return inputImageRGBSegments, inputImageGraySegments
 
-
+def generateImageSegmentBand(resolutionProperties, centerCoordinates, filterRadius, inputImageTensor):
+	allFilterCoordinatesWithinImageResult, imageSegmentStart, imageSegmentEnd = ATORpt_RFfilter.allFilterCoordinatesWithinImage(centerCoordinates, filterRadius, resolutionProperties.imageSize)
+	inputImageSegment = inputImageTensor[:, :, imageSegmentStart[0]:imageSegmentEnd[0], imageSegmentStart[1]:imageSegmentEnd[1]]
+	if(ATORpt_RFoperations.storeRFfiltersValuesAsFractions):
+		inputImageSegment = pt.divide(inputImageSegment, ATORpt_RFoperations.rgbMaxValue)	#CHECKTHIS is same for isColourFilter
+	return inputImageSegment
+			
 def applyRFfiltersList(resolutionProperties, RFfiltersFeatureTypeList, RFfiltersPropertiesFeatureTypeList, ATORneuronListAllLayers, inputImageRGBSegments=None, inputImageGraySegments=None, inputImageRGBTensorResized=None, inputImageGrayTensorResized=None, RFfiltersFeatureTypeConvLayerList=None):
 	print("\tapplyRFfiltersList: resolutionIndex = ", resolutionProperties.resolutionIndex)
 
@@ -219,25 +230,41 @@ def applyRFfiltersList(resolutionProperties, RFfiltersFeatureTypeList, RFfilters
 					inputImage = inputImageRGBTensorResized
 				else:
 					inputImage = inputImageGrayTensorResized
-				filterApplicationResultThresholdIndicesList, filterApplicationResultThresholdedList, RFpropertiesList = ATORpt_RFgenerateApply.applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImage=inputImage, RFfiltersConv=RFfiltersConv)
+				RFpropertiesList = ATORpt_RFgenerateApply.applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImage=inputImage, RFfiltersConv=RFfiltersConv)
 			else:
 				if isColourFilter:
 					inputImageSegments = inputImageRGBSegments
 				else:
 					inputImageSegments = inputImageGraySegments
-				filterApplicationResultThresholdIndicesList, filterApplicationResultThresholdedList, RFpropertiesList = ATORpt_RFgenerateApply.applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImageSegments=inputImageSegments)
+				RFpropertiesList = ATORpt_RFgenerateApply.applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImageSegments=inputImageSegments)
 
+			if(RFdetectTriFeaturesSeparately):
+				if(RFfiltersPropertiesList2[0].RFtype == RFtypeTemporaryPointFeatureKernel):
+					#print("RFpropertiesList = ", RFpropertiesList)
+					RFpropertiesList = ATORpt_RFgenerateApply.generateRFtypeTriFromPointFeatureSets(resolutionProperties, RFpropertiesList)	#generate RFtypeTri for sets of features
+					#FUTURE: consider recreating RFfiltersTensor also (not currently required)
+					
 			#print("ATORneuronList append: len(filterApplicationResultThresholdIndicesList) = ", len(filterApplicationResultThresholdIndicesList))
-			for RFthresholdedListIndex, RFlistIndex in enumerate(filterApplicationResultThresholdIndicesList):
+			for RFproperties in RFpropertiesList:
 
-				filterApplicationResult = filterApplicationResultThresholdedList[RFthresholdedListIndex]
-				RFproperties = RFpropertiesList[RFthresholdedListIndex]
+				filterApplicationResult = RFproperties.filterApplicationResult
+				
+				if(RFsaveRFimageSegments):
+					if(RFuseParallelProcessedCNN):
+						if isColourFilter:
+							inputImageTensor = inputImageRGBTensorResized
+						else:
+							inputImageTensor = inputImageGrayTensorResized
+						imageSegment = generateImageSegment(resolutionProperties, RFproperties, inputImageTensor, isColourFilter)
+					else:
+						imageSegment = inputImageSegments[RFproperties.imageSegmentIndex]
+				
 				RFfilter = None
 				RFImage = None
 				if RFsaveRFfiltersAndImageSegments:
 					RFfilter = RFfiltersTensor[RFproperties.filterIndex]
 					if(RFsaveRFimageSegments):
-						RFImage = inputImageSegments[RFproperties.imageSegmentIndex]
+						RFImage = imageSegment
 
 				centerCoordinates = RFproperties.centerCoordinates
 				allFilterCoordinatesWithinImageResult, imageSegmentStart, imageSegmentEnd = ATORpt_RFfilter.allFilterCoordinatesWithinImage(centerCoordinates, filterRadius, resolutionProperties.imageSize)

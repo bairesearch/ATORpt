@@ -139,8 +139,8 @@ def generateRotationalInvariantRFfilters(resolutionProperties, isColourFilter, f
 					axesLengthOutside = (int(axesLength1 * ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse), int(axesLength2 * ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse))
 					filterCenterCoordinates = (0, 0)
 
-					RFpropertiesInside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, ATORpt_RFproperties.RFtypeEllipse, filterCenterCoordinates, axesLengthInside, angle, filterInsideColour)
-					RFpropertiesOutside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, ATORpt_RFproperties.RFtypeEllipse, filterCenterCoordinates, axesLengthOutside, angle, filterOutsideColour)
+					RFpropertiesInside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthInside, angle, filterInsideColour)
+					RFpropertiesOutside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthOutside, angle, filterOutsideColour)
 					RFpropertiesInside.isColourFilter = isColourFilter
 					RFpropertiesOutside.isColourFilter = isColourFilter
 

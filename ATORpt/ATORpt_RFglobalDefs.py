@@ -16,30 +16,34 @@ ATORpt RF global definitions
 import numpy as np
 import sys
 
-#hardware acceleration 
+#optimisation / hardware acceleration 
 RFuseParallelProcessedCNN = False	#added 03 Mar 2024	#parallel processing implementation using CNN
 RFuseParallelProcessedCNNRFchannelsImplementation = 0
 if(RFuseParallelProcessedCNN):
+	RFdetectTriFeaturesSeparately = True	#detect tri features separately  - generate image segments (ie unnormalised snapshots) after forming tri polys from sets of these features	#ellipses already defined during feature kernel detection so original implementation generated image segments immediately 
 	ensureMinimumImageSizeGreaterThanRFsize = True	#required
 	RFuseParallelProcessedCNNRFasChannels = True
 	RFuseParallelProcessedCNNRFchannelsImplementation = 2	#apply separate CNN per RFfiltersTensor	#currently required by ATORpt_RFgenerateApply:applyRFfilters
 		#RFuseParallelProcessedCNNRFchannelsImplementation = 1	#apply separate CNN per RFfiltersFeatureTypeList #apply single CNN across all RF filters using channels (high GPU capacity required)	#not currently supported
 		#RFuseParallelProcessedCNNRFchannelsImplementation = 3	#apply separate CNN per RFfilter	#not currently supported
-	RFsaveRFimageSegments = False
 else:
+	RFdetectTriFeaturesSeparately = False
 	ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
-	RFsaveRFimageSegments = True
 	
 #****** ATORpt_RFmain ***********
 
 np.set_printoptions(threshold=sys.maxsize)
 
 generateRFfiltersEllipse = True
-generateRFfiltersTri = False
+if(RFuseParallelProcessedCNN):
+	generateRFfiltersTri = True
+else:
+	generateRFfiltersTri = False	#inefficient without RFuseParallelProcessedCNN
 
 debugLowIterations = False
 debugVerbose = False
 RFsaveRFfiltersAndImageSegments = True
+RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
 
 resolutionIndexFirst = 0
 numberOfResolutions = 4
@@ -51,6 +55,7 @@ imageSizeBase = (256, 256)
 
 RFtypeEllipse = 1
 RFtypeTri = 2
+RFtypeTemporaryPointFeatureKernel = 3
 RFfeatureTypeIndexEllipse = 0	#index in list
 RFfeatureTypeIndexTri = 1	#index in list
 
@@ -137,6 +142,7 @@ debugSmallIterations = False
 
 pointFeatureRFinsideRadius = 0.5
 pointFeatureRFopponencyAreaFactor = 2
+pointFeatureRFoutsideRadius = int(pointFeatureRFinsideRadius * pointFeatureRFopponencyAreaFactor)	#1
 
 generatePointFeatureCorners = True
 if generatePointFeatureCorners:
@@ -176,8 +182,16 @@ else:
 triAngleResolution = 30
 triColourResolution = 64
 
+triNumberPointFeatures = 3
 
+if(RFdetectTriFeaturesSeparately):
+	pointFeatureKernelSize = (3, 3)
+	pointFeatureKernelCentreCoordinates = [0, 0]
 
+pointFeatureAxisLengthInside = (pointFeatureRFinsideRadius, pointFeatureRFinsideRadius)
+pointFeatureAxisLengthOutside = (pointFeatureRFoutsideRadius, pointFeatureRFoutsideRadius)	#(1, 1)
+	
+	
 def printe(str):
 	print(str)
 	exit()

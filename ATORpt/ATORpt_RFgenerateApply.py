@@ -22,6 +22,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import copy
+import math
 
 from ATORpt_RFglobalDefs import *
 import ATORpt_RFellipseProperties
@@ -52,27 +53,27 @@ def normaliseRFComponentWRTparent(resolutionProperties, neuronComponent, RFprope
 
 
 def childRFoverlapsParentRF(neuronRFpropertiesNormalisedGlobal, lowerNeuronRFpropertiesNormalisedGlobal):
-	if neuronRFpropertiesNormalisedGlobal.RFtype == ATORpt_RFproperties.RFtypeEllipse:
+	if neuronRFpropertiesNormalisedGlobal.RFtype == RFtypeEllipse:
 		return ATORpt_RFellipseProperties.centroidOverlapsEllipse(neuronRFpropertiesNormalisedGlobal, lowerNeuronRFpropertiesNormalisedGlobal)
-	elif neuronRFpropertiesNormalisedGlobal.RFtype == ATORpt_RFproperties.RFtypeTri:
+	elif neuronRFpropertiesNormalisedGlobal.RFtype == RFtypeTri:
 		# CHECKTHIS is appropriate for tri;
 		return ATORpt_RFellipseProperties.centroidOverlapsEllipse(neuronRFpropertiesNormalisedGlobal, lowerNeuronRFpropertiesNormalisedGlobal)
 
 
 def normaliseGlobalRFproperties(RFproperties, resolutionFactor):
 	# normalise RF respect to original image size
-	if RFproperties.RFtype == ATORpt_RFproperties.RFtypeEllipse:
+	if RFproperties.RFtype == RFtypeEllipse:
 		RFpropertiesNormalisedGlobal = ATORpt_RFellipse.normaliseGlobalEllipseProperties(RFproperties, resolutionFactor)
-	elif RFproperties.RFtype == ATORpt_RFproperties.RFtypeTri:
+	elif RFproperties.RFtype == RFtypeTri:
 		RFpropertiesNormalisedGlobal = ATORpt_RFtri.normaliseGlobalTriProperties(RFproperties, resolutionFactor)
 	return RFpropertiesNormalisedGlobal
 
 
 def normaliseLocalRFproperties(RFproperties):
 	# normalise ellipse respect to major/minor ellipticity axis orientation (WRT self)
-	if RFproperties.RFtype == ATORpt_RFproperties.RFtypeEllipse:
+	if RFproperties.RFtype == RFtypeEllipse:
 		ATORpt_RFellipse.normaliseLocalEllipseProperties(RFproperties)
-	elif RFproperties.RFtype == ATORpt_RFproperties.RFtypeTri:
+	elif RFproperties.RFtype == RFtypeTri:
 		# CHECKTHIS is appropriate for tri; (ellipseNormalisedAxesLength, ellipseNormalisedAxesLength/q) might create equilateral triangle
 		ATORpt_RFtri.normaliseLocalTriProperties(RFproperties)
 
@@ -131,12 +132,75 @@ def applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RF
 			RFproperties = copy.deepcopy(RFfiltersProperties)
 			RFproperties.centerCoordinates = centerCoordinates
 			RFproperties.filterIndex = RFfilterIndex
+			RFproperties.filterApplicationResult = filterApplicationResultThresholdedList[RFthresholdedListIndex]
 			RFproperties.imageSegmentIndex = imageSegmentIndex
 			RFpropertiesList.append(RFproperties)
 
-	else:
-		filterApplicationResultThresholdIndicesList = []
-		filterApplicationResultThresholdedList = []
+	return RFpropertiesList
 
-	return filterApplicationResultThresholdIndicesList, filterApplicationResultThresholdedList, RFpropertiesList
+def generateRFtypeTriFromPointFeatureSets(resolutionProperties, RFpropertiesListPointFeatures):
+	RFpropertiesList = []
+	if(len(RFpropertiesListPointFeatures) >= triNumberPointFeatures):
+		#generate RFtypeTri for sets of features
+		coordinatesList = []
+		for RFpropertiesPointFeature in RFpropertiesListPointFeatures:
+			coordinatesList.append(RFpropertiesPointFeature.centerCoordinates)
+		coordinates = np.array(coordinatesList)
+		candidates = np.array(coordinatesList)
+		closestCoordinates, closestIndices = findKclosestCoordinates2D(coordinates, candidates, triNumberPointFeatures)
+		for RFpropertiesPointFeatureIndex, RFpropertiesPointFeature in enumerate(RFpropertiesListPointFeatures):
+			print("deriveRFtriPropertiesFromPointFeatureSet: closestIndices[RFpropertiesPointFeatureIndex] = ", closestIndices[RFpropertiesPointFeatureIndex])
+			RFpropertiesTri = deriveRFtriPropertiesFromPointFeatureSet(resolutionProperties, RFpropertiesListPointFeatures, closestIndices[RFpropertiesPointFeatureIndex])
+			if(uniqueRFCandidate(RFpropertiesList, RFproperties)):
+				RFpropertiesList.append(RFpropertiesTri)
+	return RFpropertiesList
+	
+def findKclosestCoordinates2D(coordinates, candidates, k):
+	print("coordinates = ", coordinates)
+	print("candidates = ", candidates)
+	candidates = candidates[:, np.newaxis, :]
+	distances = np.sqrt(np.sum((coordinates - candidates)**2, axis=2))
+	closestIndices = np.argsort(distances, axis=1)[:, :k]
+	closestCoordinates = np.take_along_axis(coordinates, closestIndices, axis=0)
+	return closestCoordinates, closestIndices
 
+def findKclosestCoordinates3D(coordinates, candidates, k):
+	candidates = candidates[:, np.newaxis, :]
+	distances = np.sqrt(np.sum((coordinates - candidates)**2, axis=2))
+	closestIndices = np.argsort(distances, axis=1)[:, :k]
+	closestCoordinates = np.take_along_axis(coordinates, closestIndices, axis=0)
+	return closestCoordinates, closestIndices
+
+def deriveRFtriPropertiesFromPointFeatureSet(resolutionProperties, RFpropertiesListPointFeatures, RFpropertiesPointFeaturesTriIndices):
+	filterColour = RFpropertiesListPointFeatures[0].colour
+	filterCenterCoordinates, filterSize, axesLength, angle = calculateTriangleDimensions(RFpropertiesPointFeaturesTriIndices)
+	RFpropertiesTri = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLength, angle, filterColour)
+	RFpropertiesTri.isColourFilter = RFpropertiesListPointFeatures[0].isColourFilter
+	return RFpropertiesTri
+
+def uniqueRFCandidate(RFpropertiesList, RFpropertiesCandidate):
+	#requires optimisation
+	uniqueCandidate = True
+	for RFproperties in RFpropertiesList:
+		if(RFpropertiesCandidate.centerCoordinates == RFproperties.centerCoordinates):	#CHECKTHIS (assumes no concentric feature triangles in image)
+			uniqueCandidate = False
+	return uniqueCandidate
+
+def distance(x1, y1, x2, y2):
+	return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+def calculateTriangleDimensions(coordinates):
+	centerCoordinates = np.mean(coordinates)
+	x1, y1 = coordinates[0]
+	x2, y2 = coordinates[1]
+	x3, y3 = coordinates[2]
+	filterSize = ((max(x1, x2, x3) - min(x1, x2, x3)), (max(y1, y2, y3) - min(y1, y2, y3)))
+	base_midpoint_x = (x1 + x2) / 2
+	base_midpoint_y = (y1 + y2) / 2
+	height = distance(base_midpoint_x, base_midpoint_y, x3, y3)
+	width = distance(x1, y1, x2, y2)
+	angle = math.degrees(math.atan2(y2 - y1, x2 - x1))
+	axesLength = (width, height)	#CHECKTHIS
+	return centerCoordinates, filterSize, axesLength, angle
+	
+	

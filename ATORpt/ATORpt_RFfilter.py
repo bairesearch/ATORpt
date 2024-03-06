@@ -51,11 +51,12 @@ def calculateFilterApplicationResultThreshold(filterApplicationResult, minimumFi
 
 
 def calculateFilterPixels(filterSize, numberOfDimensions, RFtype):
-	if RFtype == ATORpt_RFproperties.RFtypeEllipse:
+	if RFtype == RFtypeEllipse:
 		return ATORpt_RFellipse.calculateFilterPixels(filterSize, numberOfDimensions)
-	elif RFtype == ATORpt_RFproperties.RFtypeTri:
-		return ATORpt_RFtri.calculateFilterPixels(filterSize, numberOfDimensions)
-
+	elif RFtype == RFtypeTri:
+		return ATORpt_RFtri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
+	elif RFtype == RFtypeTemporaryPointFeatureKernel:
+		return ATORpt_RFtri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
 
 def normaliseRFfilter(RFfilter, RFproperties):
 	# normalise ellipse respect to major/minor ellipticity axis orientation (WRT self)

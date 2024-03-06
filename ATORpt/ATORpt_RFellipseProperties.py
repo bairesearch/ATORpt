@@ -60,6 +60,8 @@ def drawRectangle(outputImage, ellipseProperties, relativeCoordiantes):
 	
 	centerCoordinates = getAbsoluteImageCenterCoordinates(outputImage, ellipseProperties, relativeCoordiantes)
 	
+	#print("centerCoordinates[0] = ", centerCoordinates[0])
+	#print("centerCoordinates[1] = ", centerCoordinates[1])
 	#print("ellipseProperties.axesLength[0] = ", ellipseProperties.axesLength[0])
 	
 	point1 = (centerCoordinates[0]-ellipseProperties.axesLength[0], centerCoordinates[1]-ellipseProperties.axesLength[1])
@@ -71,9 +73,6 @@ def drawRectangle(outputImage, ellipseProperties, relativeCoordiantes):
 	
 def drawPoint(outputImage, ellipseProperties, relativeCoordiantes):		
 	centerCoordinates = getAbsoluteImageCenterCoordinates(outputImage, ellipseProperties, relativeCoordiantes)
-	
-	#print("ellipseProperties.centerCoordinates = ", ellipseProperties.centerCoordinates)
-	#print("centerCoordinates = ", centerCoordinates)
 	
 	x = centerCoordinates[0]
 	y = centerCoordinates[1]
