@@ -1,4 +1,4 @@
-"""ATORpt_RFtri.py
+"""ATORpt_RFgenerateTri.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -23,9 +23,9 @@ import cv2
 import copy
 
 from ATORpt_RFglobalDefs import *
-import ATORpt_RFproperties
+import ATORpt_RFpropertiesClass
 import ATORpt_RFoperations
-
+import ATORpt_RFgenerateDraw
 
 
 def printTriProperties(triProperties):
@@ -98,8 +98,8 @@ if(RFdetectTriFeaturesSeparately):
 		axesLengthOutside = pointFeatureAxisLengthOutside
 		angleInsideUnused = None
 		filterSize = pointFeatureKernelSize
-		RFpropertiesInside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthInside, angleInsideUnused, filterInsideColour)
-		RFpropertiesOutside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthOutside, angleInsideUnused, filterOutsideColour)
+		RFpropertiesInside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthInside, angleInsideUnused, filterInsideColour)
+		RFpropertiesOutside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthOutside, angleInsideUnused, filterOutsideColour)
 		RFpropertiesInside.isColourFilter = isColourFilter
 		RFpropertiesOutside.isColourFilter = isColourFilter
 				
@@ -116,12 +116,12 @@ if(RFdetectTriFeaturesSeparately):
 				RFfilter = generateRFfilter(resolutionProperties.resolutionIndex, isColourFilter, RFpropertiesInside, RFpropertiesOutside, vertexCoordinatesRelativeInside, vertexCoordinatesRelativeOutside)
 				RFfiltersList2.append(RFfilter)
 
-				RFproperties = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthInside, angleInsideUnused, filterInsideColour)
+				RFproperties = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTemporaryPointFeatureKernel, filterCenterCoordinates, axesLengthInside, angleInsideUnused, filterInsideColour)
 				RFproperties.isColourFilter = isColourFilter
 				RFfiltersPropertiesList2.append(RFproperties)
 
 				RFfilterImageFilename = "RFfilterResolutionIndex" + str(resolutionProperties.resolutionIndex) + "filterTypeIndex" + str(filterTypeIndex) + "corner1OpponencyPosition1" + str(corner1OpponencyPosition1) + "corner1OpponencyPosition2" + ".png"
-				ATORpt_RFproperties.saveRFFilterImage(RFfilter, RFfilterImageFilename)
+				ATORpt_RFpropertiesClass.saveRFFilterImage(RFfilter, RFfilterImageFilename)
 
 		RFfiltersTensor = pt.stack(RFfiltersList2, dim=0)
 
@@ -139,11 +139,11 @@ if(RFdetectTriFeaturesSeparately):
 		RFpropertiesOutside1.centerCoordinates = (RFpropertiesOutside1.centerCoordinates[0] + vertexCoordinatesRelativeOutside[0], RFpropertiesOutside1.centerCoordinates[1] + vertexCoordinatesRelativeOutside[1])
 		
 		if generatePointFeatureCorners:
-			drawFeatureType = ATORpt_RFproperties.RFfeatureTypeCorner
+			drawFeatureType = ATORpt_RFpropertiesClass.RFfeatureTypeCorner
 		else:
-			drawFeatureType = ATORpt_RFproperties.RFfeatureTypePoint
+			drawFeatureType = ATORpt_RFpropertiesClass.RFfeatureTypePoint
 
-		RFfilterTF = ATORpt_RFproperties.drawRF(RFfilterTF, RFpropertiesInside1, RFpropertiesOutside1, drawFeatureType, True)
+		RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside1, RFpropertiesOutside1, drawFeatureType, True)
 		
 		if ATORpt_RFoperations.storeRFfiltersValuesAsFractions:
 			RFfilterTF = RFfilterTF / ATORpt_RFoperations.rgbMaxValue
@@ -196,12 +196,12 @@ else:
 													angleOutside = 0.0
 													filterCenterCoordinates = (0, 0)
 
-													RFpropertiesInside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLengthInside, angleInside, filterInsideColour)
-													RFpropertiesOutside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLengthOutside, angleOutside, filterOutsideColour)
+													RFpropertiesInside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLengthInside, angleInside, filterInsideColour)
+													RFpropertiesOutside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLengthOutside, angleOutside, filterOutsideColour)
 													RFpropertiesInside.isColourFilter = isColourFilter
 													RFpropertiesOutside.isColourFilter = isColourFilter
 
-													vertexCoordinatesRelative = ATORpt_RFproperties.deriveTriVertexCoordinatesFromArtificialEllipseProperties(axesLength, angle)
+													vertexCoordinatesRelative = ATORpt_RFpropertiesClass.deriveTriVertexCoordinatesFromArtificialEllipseProperties(axesLength, angle)
 
 													vertexCoordinatesRelativeInside = copy.deepcopy(vertexCoordinatesRelative)
 													vertexCoordinatesRelativeOutside = copy.deepcopy(vertexCoordinatesRelative)
@@ -215,12 +215,12 @@ else:
 													RFfilter = generateRFfilter(resolutionProperties.resolutionIndex, isColourFilter, RFpropertiesInside, RFpropertiesOutside, vertexCoordinatesRelativeInside, vertexCoordinatesRelativeOutside)
 													RFfiltersList2.append(RFfilter)
 
-													RFproperties = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLength, angle, filterInsideColour)
+													RFproperties = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeTri, filterCenterCoordinates, axesLength, angle, filterInsideColour)
 													RFproperties.isColourFilter = isColourFilter
 													RFfiltersPropertiesList2.append(RFproperties)
 
 													RFfilterImageFilename = "RFfilterResolutionIndex" + str(resolutionProperties.resolutionIndex) + "filterTypeIndex" + str(filterTypeIndex) + "axesLength1" + str(axesLength1) + "axesLength2" + str(axesLength2) + "angle" + str(angle) + "corner1OpponencyPosition1" + str(corner1OpponencyPosition1) + "corner1OpponencyPosition2" + str(corner1OpponencyPosition2) + "corner2OpponencyPosition1" + str(corner2OpponencyPosition1) + "corner2OpponencyPosition2" + str(corner2OpponencyPosition2) + "corner3OpponencyPosition1" + str(corner3OpponencyPosition1) + "corner3OpponencyPosition2" + str(corner3OpponencyPosition2) + ".png"
-													ATORpt_RFproperties.saveRFFilterImage(RFfilter, RFfilterImageFilename)
+													ATORpt_RFpropertiesClass.saveRFFilterImage(RFfilter, RFfilterImageFilename)
 
 		RFfiltersTensor = pt.stack(RFfiltersList2, dim=0)
 
@@ -247,13 +247,13 @@ else:
 		RFpropertiesOutside3.centerCoordinates = (RFpropertiesOutside3.centerCoordinates[0] + vertexCoordinatesRelativeOutside[2][0], RFpropertiesOutside3.centerCoordinates[1] + vertexCoordinatesRelativeOutside[2][1])
 
 		if generatePointFeatureCorners:
-			drawFeatureType = ATORpt_RFproperties.RFfeatureTypeCorner
+			drawFeatureType = ATORpt_RFpropertiesClass.RFfeatureTypeCorner
 		else:
-			drawFeatureType = ATORpt_RFproperties.RFfeatureTypePoint
+			drawFeatureType = ATORpt_RFpropertiesClass.RFfeatureTypePoint
 
-		RFfilterTF = ATORpt_RFproperties.drawRF(RFfilterTF, RFpropertiesInside1, RFpropertiesOutside1, drawFeatureType, True)
-		RFfilterTF = ATORpt_RFproperties.drawRF(RFfilterTF, RFpropertiesInside2, RFpropertiesOutside2, drawFeatureType, True)
-		RFfilterTF = ATORpt_RFproperties.drawRF(RFfilterTF, RFpropertiesInside3, RFpropertiesOutside3, drawFeatureType, True)
+		RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside1, RFpropertiesOutside1, drawFeatureType, True)
+		RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside2, RFpropertiesOutside2, drawFeatureType, True)
+		RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside3, RFpropertiesOutside3, drawFeatureType, True)
 
 		if ATORpt_RFoperations.storeRFfiltersValuesAsFractions:
 			RFfilterTF = RFfilterTF / ATORpt_RFoperations.rgbMaxValue
@@ -264,4 +264,4 @@ else:
 		return RFfilterTF
 
 def getFilterDimensions(resolutionProperties):
-	return ATORpt_RFproperties.getFilterDimensions(resolutionProperties, triMaximumAxisLengthMultiplier, receptiveFieldOpponencyAreaFactorTri)
+	return ATORpt_RFpropertiesClass.getFilterDimensions(resolutionProperties, triMaximumAxisLengthMultiplier, receptiveFieldOpponencyAreaFactorTri)

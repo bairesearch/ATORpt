@@ -13,7 +13,7 @@ See ATORpt_main.py
 python ATORpt_RFdetectEllipses.py images/leaf1.png
 
 # Description:
-Perform ATOR ellipse detection using open-cv library (non-hardware accelerated)
+Perform ATOR ellipse detection using open-cv library (non-hardware accelerated) rather than RF filters
 
 See [Vinmorel](https://github.com/vinmorel/Genetic-Algorithm-Image) for genetic algorithm implementation.
 
@@ -28,7 +28,8 @@ from collections import OrderedDict
 
 from ATORpt_RFglobalDefs import *
 import ATORpt_RFoperations
-import ATORpt_RFellipseProperties
+import ATORpt_RFellipsePropertiesClass
+import ATORpt_RFgenerateDraw
 
 def detectEllipsesGaussianBlur(inputimagefilename):
 	
@@ -135,31 +136,31 @@ def detectEllipsesTrialResize(inputimagefilename):
 										axesLength = (axesLength1, axesLength2)
 										colour = (colour1, colour2, colour3)
 										
-										ellipseProperties = ATORpt_RFellipseProperties.EllipsePropertiesClass(centerCoordinates, axesLength, angle, colour)
-										inputImageRmod, ellipseFitError = ATORpt_RFellipseProperties.testEllipseApproximation(inputImageR, ellipseProperties)
+										ellipseProperties = ATORpt_RFellipsePropertiesClass.EllipsePropertiesClass(centerCoordinates, axesLength, angle, colour)
+										inputImageRmod, ellipseFitError = ATORpt_RFellipsePropertiesClass.testEllipseApproximation(inputImageR, ellipseProperties)
 	
 										ellipsePropertiesOrderedDict[ellipseFitError] = ellipseProperties
 										testEllipseIndex = testEllipseIndex + 1
 										
-										#ATORpt_RFellipseProperties.printEllipseProperties(ellipseProperties)
+										#ATORpt_RFellipsePropertiesClass.printEllipseProperties(ellipseProperties)
 
 																									
 		ellipsePropertiesOptimumNormalisedR = []
 		for ellipseFitError, ellipseProperties in ellipsePropertiesOrderedDict.items():
 			
-			ellipsePropertiesNormalised = ATORpt_RFellipseProperties.normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor)
+			ellipsePropertiesNormalised = ATORpt_RFellipsePropertiesClass.normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor)
 			
 			ellipseOverlapsesWithPreviousOptimumEllipse = False
 			for ellipseProperties2 in ellipsePropertiesOptimumNormalisedR:
-				if(ATORpt_RFellipseProperties.centroidOverlapsEllipseWrapper(ellipseFitError, ellipsePropertiesNormalised, ellipseProperties2)):
+				if(ATORpt_RFellipsePropertiesClass.centroidOverlapsEllipseWrapper(ellipseFitError, ellipsePropertiesNormalised, ellipseProperties2)):
 					ellipseOverlapsesWithPreviousOptimumEllipse = True
 						
 			if(not ellipseOverlapsesWithPreviousOptimumEllipse):
 				ellipsePropertiesNormalisedOptimumLast = ellipsePropertiesNormalised
 				ellipsePropertiesOptimumNormalisedAllRes.append(ellipsePropertiesNormalisedOptimumLast)
 				ellipsePropertiesOptimumNormalisedR.append(ellipsePropertiesNormalisedOptimumLast)
-				#inputImageRmod, ellipseFitError = ATORpt_RFellipseProperties.testEllipseApproximation(inputImageR, ellipseProperties)
-				outputImage = ATORpt_RFellipseProperties.drawEllipse(outputImage, ellipsePropertiesNormalisedOptimumLast, False)
+				#inputImageRmod, ellipseFitError = ATORpt_RFellipsePropertiesClass.testEllipseApproximation(inputImageR, ellipseProperties)
+				outputImage = ATORpt_RFgenerateDraw.drawEllipse(outputImage, ellipsePropertiesNormalisedOptimumLast, False)
 				ATORpt_RFoperations.displayImage(outputImage)
 				ATORpt_RFoperations.saveImage(inputimagefilename, outputImage)
 

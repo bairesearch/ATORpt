@@ -1,4 +1,4 @@
-"""ATORpt_RFfilter.py
+"""ATORpt_RFapplyFilter.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -25,9 +25,9 @@ import copy
 
 from ATORpt_RFglobalDefs import *
 import ATORpt_pta_image as pta_image
-import ATORpt_RFproperties
-import ATORpt_RFellipse
-import ATORpt_RFtri
+import ATORpt_RFpropertiesClass
+import ATORpt_RFgenerateEllipse
+import ATORpt_RFgenerateTri
 import ATORpt_RFoperations
 
 
@@ -52,11 +52,11 @@ def calculateFilterApplicationResultThreshold(filterApplicationResult, minimumFi
 
 def calculateFilterPixels(filterSize, numberOfDimensions, RFtype):
 	if RFtype == RFtypeEllipse:
-		return ATORpt_RFellipse.calculateFilterPixels(filterSize, numberOfDimensions)
+		return ATORpt_RFgenerateEllipse.calculateFilterPixels(filterSize, numberOfDimensions)
 	elif RFtype == RFtypeTri:
-		return ATORpt_RFtri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
+		return ATORpt_RFgenerateTri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
 	elif RFtype == RFtypeTemporaryPointFeatureKernel:
-		return ATORpt_RFtri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
+		return ATORpt_RFgenerateTri.calculateFilterPixels(filterSize, numberOfDimensions)	#CHECKTHIS
 
 def normaliseRFfilter(RFfilter, RFproperties):
 	# normalise ellipse respect to major/minor ellipticity axis orientation (WRT self)
@@ -105,10 +105,10 @@ def rotateRFfilterTF(RFfilter, angle):
 
 
 def getFilterDimensions(resolutionProperties):
-	return ATORpt_RFproperties.getFilterDimensions(resolutionProperties)
+	return ATORpt_RFpropertiesClass.getFilterDimensions(resolutionProperties)
 
 
-# CHECKTHIS: upgrade code to support ATORpt_RFtri
+# CHECKTHIS: upgrade code to support ATORpt_RFgenerateTri
 def allFilterCoordinatesWithinImage(centerCoordinates, filterRadius, imageSize):
 	imageSegmentStart = (centerCoordinates[0] - filterRadius, centerCoordinates[1] - filterRadius)
 	imageSegmentEnd = (centerCoordinates[0] + filterRadius, centerCoordinates[1] + filterRadius)

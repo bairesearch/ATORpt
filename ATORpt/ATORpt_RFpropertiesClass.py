@@ -1,4 +1,4 @@
-"""ATORpt_RFproperties.py
+"""ATORpt_RFpropertiesClass.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -18,16 +18,13 @@ ATORpt RF Properties - RF Properties transformations (primitive space: ellipse o
 """
 
 import torch as pt
-import numpy as np
-import cv2
 import copy
 
 from ATORpt_RFglobalDefs import *
-import ATORpt_RFellipseProperties
+import ATORpt_RFellipsePropertiesClass
 import ATORpt_RFoperations
 
-
-class RFpropertiesClass(ATORpt_RFellipseProperties.EllipsePropertiesClass):
+class RFpropertiesClass(ATORpt_RFellipsePropertiesClass.EllipsePropertiesClass):
 	def __init__(self, resolutionIndex, resolutionFactor, imageSize, RFtype, centerCoordinates, axesLength, angle, colour):
 		self.resolutionIndex = resolutionIndex
 		self.resolutionFactor = resolutionFactor
@@ -55,67 +52,11 @@ def deriveTriVertexCoordinatesFromArtificialEllipseProperties(axesLength, angle)
 def printRFproperties(RFproperties):
 	print("printRFproperties: numberOfDimensions = ", RFproperties.numberOfDimensions, ", resolutionIndex = ", RFproperties.resolutionIndex, ", isColourFilter = ", RFproperties.isColourFilter, ", imageSize = ", RFproperties.imageSize)
 	if RFproperties.RFtype == RFtypeEllipse:
-		ATORpt_RFellipseProperties.printEllipseProperties(RFproperties)
+		ATORpt_RFellipsePropertiesClass.printEllipseProperties(RFproperties)
 	elif RFproperties.RFtype == RFtypeTri:
-		ATORpt_RFellipseProperties.printEllipseProperties(RFproperties)
+		ATORpt_RFellipsePropertiesClass.printEllipseProperties(RFproperties)
 		print("vertexCoordinatesRelative = ", RFproperties.vertexCoordinatesRelative)
 
-def drawRF(RFfilterTF, RFpropertiesInside, RFpropertiesOutside, drawFeatureType, drawFeatureOverlay):
-	blankArray = np.full((RFpropertiesInside.imageSize[1], RFpropertiesInside.imageSize[0], 1), 0, np.uint8)
-	ellipseFilterImageInside = copy.deepcopy(blankArray)
-	ellipseFilterImageOutside = copy.deepcopy(blankArray)
-	RFpropertiesInsideWhite = copy.deepcopy(RFpropertiesInside)
-	RFpropertiesInsideWhite.colour = (255, 255, 255)
-	RFpropertiesOutsideWhite = copy.deepcopy(RFpropertiesOutside)
-	RFpropertiesOutsideWhite.colour = (255, 255, 255)
-	RFpropertiesInsideBlack = copy.deepcopy(RFpropertiesInside)
-	RFpropertiesInsideBlack.colour = (000, 000, 000)
-	if drawFeatureType == RFfeatureTypeEllipse:
-		ATORpt_RFellipseProperties.drawEllipse(ellipseFilterImageInside, RFpropertiesInsideWhite, True)
-		ATORpt_RFellipseProperties.drawEllipse(ellipseFilterImageOutside, RFpropertiesOutsideWhite, True)
-		ATORpt_RFellipseProperties.drawEllipse(ellipseFilterImageOutside, RFpropertiesInsideBlack, True)
-	elif drawFeatureType == RFfeatureTypeCircle:
-		ATORpt_RFellipseProperties.drawCircle(ellipseFilterImageInside, RFpropertiesInsideWhite, True)
-		ATORpt_RFellipseProperties.drawCircle(ellipseFilterImageOutside, RFpropertiesOutsideWhite, True)
-		ATORpt_RFellipseProperties.drawCircle(ellipseFilterImageOutside, RFpropertiesInsideBlack, True)
-	elif drawFeatureType == RFfeatureTypePoint:
-		ATORpt_RFellipseProperties.drawPoint(ellipseFilterImageInside, RFpropertiesInsideWhite, True)
-		ATORpt_RFellipseProperties.drawCircle(ellipseFilterImageOutside, RFpropertiesOutsideWhite, True)
-		ATORpt_RFellipseProperties.drawPoint(ellipseFilterImageOutside, RFpropertiesInsideBlack, True)
-	elif drawFeatureType == RFfeatureTypeCorner:
-		ATORpt_RFellipseProperties.drawPoint(ellipseFilterImageInside, RFpropertiesInsideWhite, True)
-		ATORpt_RFellipseProperties.drawRectangle(ellipseFilterImageOutside, RFpropertiesOutsideWhite, True)
-		ATORpt_RFellipseProperties.drawPoint(ellipseFilterImageOutside, RFpropertiesInsideBlack, True)
-	insideImageTF = pt.tensor(ellipseFilterImageInside, dtype=pt.float32)
-	insideImageTF = pt.gt(insideImageTF, 0.0)
-	insideImageTF = insideImageTF.type(pt.float32)
-	outsideImageTF = pt.tensor(ellipseFilterImageOutside, dtype=pt.float32)
-	outsideImageTF = pt.gt(outsideImageTF, 0.0)
-	outsideImageTF = outsideImageTF.type(pt.float32)
-	multiples = tuple([1, 1, 3])
-	insideImageTF = insideImageTF.repeat(multiples)
-	RFcolourInside = pt.tensor([RFpropertiesInside.colour[0], RFpropertiesInside.colour[1], RFpropertiesInside.colour[2]], dtype=pt.float32)
-	RFcolourInside = RFcolourInside.unsqueeze(dim=0)
-	insideImageTF = insideImageTF * RFcolourInside
-	multiples = tuple([1, 1, 3])
-	outsideImageTF = outsideImageTF.repeat(multiples)
-	RFcolourOutside = pt.tensor([RFpropertiesOutside.colour[0], RFpropertiesOutside.colour[1], RFpropertiesOutside.colour[2]], dtype=pt.float32)
-	RFcolourOutside = RFcolourOutside.unsqueeze(dim=0)
-	outsideImageTF = outsideImageTF * RFcolourOutside
-	if drawFeatureOverlay:
-		RFfilterTFon = pt.ne(RFfilterTF, 0.0)
-		insideImageTFon = pt.ne(insideImageTF, 0.0)
-		outsideImageTFon = pt.ne(outsideImageTF, 0.0)
-		insideImageTFonOverlap = pt.logical_and(RFfilterTFon, insideImageTFon)
-		outsideImageTFonOverlap = pt.logical_and(RFfilterTFon, outsideImageTFon)
-		insideImageTFonMask = pt.logical_not(insideImageTFonOverlap).type(pt.float32)
-		outsideImageTFonMask = pt.logical_not(outsideImageTFonOverlap).type(pt.float32)
-		insideImageTF = insideImageTF * insideImageTFonMask
-		outsideImageTF = outsideImageTF * outsideImageTFonMask
-		RFfilterTF = RFfilterTF + insideImageTF + outsideImageTF
-	else:
-		RFfilterTF = RFfilterTF + insideImageTF + outsideImageTF
-	return RFfilterTF
 
 def generateRFtransformedProperties(neuronComponent, RFpropertiesParent):
 	if RFpropertiesParent.numberOfDimensions == 2:

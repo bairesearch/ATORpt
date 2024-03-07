@@ -1,4 +1,4 @@
-"""ATORpt_RFellipse.py
+"""ATORpt_RFgenerateEllipse.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -23,13 +23,14 @@ import cv2
 import copy
 
 from ATORpt_RFglobalDefs import *
-import ATORpt_RFproperties
-import ATORpt_RFellipseProperties
+import ATORpt_RFpropertiesClass
+import ATORpt_RFellipsePropertiesClass
 import ATORpt_RFoperations
+import ATORpt_RFgenerateDraw
 
 
 def normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor):
-	return ATORpt_RFellipseProperties.normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor)
+	return ATORpt_RFellipsePropertiesClass.normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor)
 
 
 def normaliseLocalEllipseProperties(RFproperties):
@@ -59,12 +60,12 @@ def calculateFilterPixels(filterSize, numberOfDimensions):
 def getInternalFilterSize(filterSize, numberOfDimensions):
 	if numberOfDimensions == 2:
 		internalFilterSize = (
-		(filterSize[0] / ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse),
-		(filterSize[1] / ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse))
+		(filterSize[0] / ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse),
+		(filterSize[1] / ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse))
 	elif numberOfDimensions == 3:
 		internalFilterSize = (
-		(filterSize[0] / ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse),
-		(filterSize[1] / ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse))  # CHECKTHIS
+		(filterSize[0] / ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse),
+		(filterSize[1] / ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse))  # CHECKTHIS
 	return internalFilterSize
 
 
@@ -136,11 +137,11 @@ def generateRotationalInvariantRFfilters(resolutionProperties, isColourFilter, f
 				for angle in range(0, 360, ellipseAngleResolution):  # degrees
 
 					axesLengthInside = (axesLength1, axesLength2)
-					axesLengthOutside = (int(axesLength1 * ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse), int(axesLength2 * ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse))
+					axesLengthOutside = (int(axesLength1 * ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse), int(axesLength2 * ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse))
 					filterCenterCoordinates = (0, 0)
 
-					RFpropertiesInside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthInside, angle, filterInsideColour)
-					RFpropertiesOutside = ATORpt_RFproperties.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthOutside, angle, filterOutsideColour)
+					RFpropertiesInside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthInside, angle, filterInsideColour)
+					RFpropertiesOutside = ATORpt_RFpropertiesClass.RFpropertiesClass(resolutionProperties.resolutionIndex, resolutionProperties.resolutionFactor, filterSize, RFtypeEllipse, filterCenterCoordinates, axesLengthOutside, angle, filterOutsideColour)
 					RFpropertiesInside.isColourFilter = isColourFilter
 					RFpropertiesOutside.isColourFilter = isColourFilter
 
@@ -154,13 +155,13 @@ def generateRotationalInvariantRFfilters(resolutionProperties, isColourFilter, f
 					# debug:
 					# print(RFfilter.shape)
 					if debugVerbose:
-						ATORpt_RFproperties.printRFproperties(RFproperties)
-						# ATORpt_RFproperties.printRFproperties(RFpropertiesInside)
-						# ATORpt_RFproperties.printRFproperties(RFpropertiesOutside)
+						ATORpt_RFpropertiesClass.printRFproperties(RFproperties)
+						# ATORpt_RFpropertiesClass.printRFproperties(RFpropertiesInside)
+						# ATORpt_RFpropertiesClass.printRFproperties(RFpropertiesOutside)
 					# print("RFfilter = ", RFfilter)
 
 					RFfilterImageFilename = "RFfilterResolutionIndex" + str(resolutionProperties.resolutionIndex) + "filterTypeIndex" + str(filterTypeIndex) + "axesLength1" + str(axesLength1) + "axesLength2" + str(axesLength2) + "angle" + str(angle) + ".png"
-					ATORpt_RFproperties.saveRFFilterImage(RFfilter, RFfilterImageFilename)
+					ATORpt_RFpropertiesClass.saveRFFilterImage(RFfilter, RFfilterImageFilename)
 
 	# create 3D tensor (for hardware accelerated test/application of filters)
 	RFfiltersTensor = pt.stack(RFfiltersList2, dim=0)
@@ -184,7 +185,7 @@ def generateRFfilter(resolutionIndex, isColourFilter, RFpropertiesInside, RFprop
 	blankArray = np.full((RFpropertiesInside.imageSize[1], RFpropertiesInside.imageSize[0], rgbNumChannels), 0, np.uint8)  # rgb
 	RFfilterTF = pt.tensor(blankArray, dtype=pt.float32)
 
-	RFfilterTF = ATORpt_RFproperties.drawRF(RFfilterTF, RFpropertiesInside, RFpropertiesOutside, ATORpt_RFproperties.RFfeatureTypeEllipse, False)
+	RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside, RFpropertiesOutside, ATORpt_RFpropertiesClass.RFfeatureTypeEllipse, False)
 
 	# print("RFfilterTF = ", RFfilterTF)
 
@@ -201,6 +202,6 @@ def generateRFfilter(resolutionIndex, isColourFilter, RFpropertiesInside, RFprop
 	return RFfilterTF
 
 def getFilterDimensions(resolutionProperties):
-	return ATORpt_RFproperties.getFilterDimensions(resolutionProperties)
+	return ATORpt_RFpropertiesClass.getFilterDimensions(resolutionProperties)
 
 

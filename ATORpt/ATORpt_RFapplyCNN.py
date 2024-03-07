@@ -1,4 +1,4 @@
-"""ATORpt_RFCNN.py
+"""ATORpt_RFapplyCNN.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -109,7 +109,7 @@ def applyCNNfilters(inputImage, RFfiltersConv, isColourFilter, numberOfKernels):
 '''	
 def calculateCNNpadding(kernelSize):
 	print("kernelSize = ", kernelSize)
-	paddingSize = (kernelSize-1)//2	#assume kernel size even (see ATORpt_RFproperties.getFilterDimensions)
+	paddingSize = (kernelSize-1)//2	#assume kernel size even (see ATORpt_RFpropertiesClass.getFilterDimensions)
 	print("paddingSize = ", paddingSize)
 	return kernelSize
 	#CHECKTHIS; align with generateImageSegments (ie inputImageSize == outputImageSize) 

@@ -17,7 +17,7 @@ import numpy as np
 import sys
 
 #optimisation / hardware acceleration 
-RFuseParallelProcessedCNN = False	#added 03 Mar 2024	#parallel processing implementation using CNN
+RFuseParallelProcessedCNN = True	#added 03 Mar 2024	#parallel processing implementation using CNN
 RFuseParallelProcessedCNNRFchannelsImplementation = 0
 if(RFuseParallelProcessedCNN):
 	RFdetectTriFeaturesSeparately = True	#detect tri features separately  - generate image segments (ie unnormalised snapshots) after forming tri polys from sets of these features	#ellipses already defined during feature kernel detection so original implementation generated image segments immediately 
@@ -29,10 +29,16 @@ if(RFuseParallelProcessedCNN):
 else:
 	RFdetectTriFeaturesSeparately = False
 	ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
-	
+
+
 #****** ATORpt_RFmain ***********
 
 np.set_printoptions(threshold=sys.maxsize)
+
+debugLowIterations = False
+debugVerbose = False
+
+#****** ATORpt_RFgenerate ***********
 
 generateRFfiltersEllipse = True
 if(RFuseParallelProcessedCNN):
@@ -40,18 +46,18 @@ if(RFuseParallelProcessedCNN):
 else:
 	generateRFfiltersTri = False	#inefficient without RFuseParallelProcessedCNN
 
-debugLowIterations = False
-debugVerbose = False
-RFsaveRFfiltersAndImageSegments = True
-RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
-
 resolutionIndexFirst = 0
 numberOfResolutions = 4
+
+#****** ATORpt_RFapply ***********
+
+RFsaveRFfiltersAndImageSegments = True
+RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
 
 imageSizeBase = (256, 256)
 
 
-#****** ATORpt_RFproperties ***********
+#****** ATORpt_RFpropertiesClass ***********
 
 RFtypeEllipse = 1
 RFtypeTri = 2
@@ -85,13 +91,13 @@ ellipseAngleResolution = 10	#degrees
 ellipseColourResolution = 64	#bits
 
 
-#****** ATORpt_RFellipseProperties ***********
+#****** ATORpt_RFellipsePropertiesClass ***********
 
 ellipseAngleResolution = 10	#degrees
 minimumEllipseFitErrorRequirement = 1500.0	#calibrate
 
 
-#****** ATORpt_RFfilter ***********
+#****** ATORpt_RFapplyFilter ***********
 
 minimumFilterRequirement = 1.5  # CHECKTHIS: calibrate  # matched values fraction  # theoretical value: 0.95
 
@@ -108,12 +114,12 @@ rgbMaxValue = 255.0
 rgbNumChannels = 3
 
 
-#****** ATORpt_RFellipse ***********
+#****** ATORpt_RFgenerateEllipse ***********
 
 ellipseAngleResolution = 10  # degrees
 ellipseMinimumFitErrorRequirement = 1500.0  # calibrate
 
-# match ATORpt_RFellipse algorithm;
+# match ATORpt_RFgenerateEllipse algorithm;
 ellipseRFnormaliseLocalEquilateralTriangle = True
 
 ellipseNormalisedAngle = 0.0
@@ -136,7 +142,7 @@ ellipseAngleResolution = 30  # degrees
 ellipseColourResolution = 64  # bits
 
 
-#****** ATORpt_RFtri ***********
+#****** ATORpt_RFgenerateTri ***********
 
 debugSmallIterations = False
 
@@ -161,7 +167,7 @@ triNormalisedCentreCoordinates = 0.0
 triNormalisedAxesLength = 1.0
 
 if triMatchRFellipseAlgorithm:
-	receptiveFieldOpponencyAreaFactorTri = ATORpt_RFproperties.receptiveFieldOpponencyAreaFactorEllipse
+	receptiveFieldOpponencyAreaFactorTri = ATORpt_RFpropertiesClass.receptiveFieldOpponencyAreaFactorEllipse
 	triMaximumAxisLengthMultiplierTri = 1
 	triMaximumAxisLengthMultiplier = maximumAxisLengthMultiplierDefault
 	triMinimumAxisLength1 = minimumEllipseAxisLength * 2
