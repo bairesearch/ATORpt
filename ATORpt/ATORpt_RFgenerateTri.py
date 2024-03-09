@@ -7,10 +7,10 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Usage:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Description:
 ATORpt RF Tri - generate tri (as represented by 3 feature points) receptive fields

@@ -14,7 +14,9 @@ source activate pytorchsenv2
 python ATORpt_RFmain.py images/leaf1.png
 
 # Description:
-ATORpt RF is a receptive field implementation for ATOR feature detection (ellipse centroids and tri corners)
+ATORpt RF is a receptive field implementation for ATOR feature/poly detection (ellipse centroids and tri corners)
+
+ATOR RF currently contains its own unique implementation stack, although RF feature detection can be merged into the main code base.
 
 ATORpt RF supports ellipsoid features (for centroid detection), and normalises them with respect to their major/minor ellipticity axis orientation. 
 There are a number of advantages of using ellipsoid features over point features;

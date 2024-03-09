@@ -1,4 +1,4 @@
-"""ATORpt_geometricHashingC.py
+"""ATORpt_CPPATOR.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -13,7 +13,7 @@ See ATORpt_main.py
 See ATORpt_main.py
 
 # Description:
-ATORpt geometric Hashing C - interface for ATOR C++ implementation: transformed ("normalised") image patch generation
+ATORpt CPP ATOR - interface for ATOR C++ implementation: transformed ("normalised") image patch generation
 
 """
 
@@ -27,12 +27,11 @@ from ATORpt_globalDefs import *
 
 supportFolderGeneration = False	#rely on ATOR cpp implementation to generate folder structure
 
-if(pt.cuda.is_available()):
-	device = pt.device("cuda")
-else:
-	device = pt.device("cpu")
 
-def generateATORpatches(imagePath, train):
+def generateATORpatches(imagePaths, train):
+	imagePath = imagePaths[0]
+	assert len(imagePaths) == 1
+		
 	copyImage(imagePath, inputfolder)	#copy image to ATOR input folder
 	inputImageName = getFileName(imagePath)
 	print("imagePath = ", imagePath)
@@ -54,7 +53,7 @@ def loadATORpatches(inputImageName, train):
 	folderPath = DBgenerateFolderName(objectName, train)
 	patchIndex = 0
 	imageTensorList = []
-	for polyIndex in range(VITmaxNumberATORpolys):
+	for polyIndex in range(VITmaxNumberATORpolysPerZoom):
 		for zoomIndex in range(ATOR_METHOD2DOD_NUMBER_OF_SNAPSHOT_ZOOM_LEVELS):
 			for sideIndex in range(ATOR_METHOD_POLYGON_NUMBER_OF_SIDES):
 				if(patchIndex < VITmaxNumberATORpatches):

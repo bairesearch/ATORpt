@@ -1,4 +1,4 @@
-"""ATORpt_featureDetector.py
+"""ATORpt_E2EpolyKeypointGenerator.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -9,8 +9,11 @@ MIT License
 # Installation:
 see ATORpt_main.py
 
+# Usage:
+See ATORpt_main.py
+
 # Description:
-ATORpt feature detector
+ATORpt E2E poly Keypoint Generator
 
 """
 
@@ -18,7 +21,7 @@ import torch as pt
 import torch.nn as nn
 
 from ATORpt_globalDefs import *
-import ATORpt_operations
+import ATORpt_E2Eoperations
 
 def performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings):
 
@@ -36,8 +39,8 @@ def performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNorm
 	#print("dotsProximity.shape = ", dotsProximity.shape)
 	dots = pt.multiply(dotsLuminosity, dotsProximity)
 
-	#if(debugGeometricHashingHardcoded):
-	#	ATORpt_operations.printFeatureMap(posEmbeddings, dots)
+	#if(debugGeometricHashingParallel):
+	#	ATORpt_E2Eoperations.printFeatureMap(posEmbeddings, dots)
 
 	if(useGeometricHashingProbabilisticKeypoints):
 		attention = dots
@@ -72,3 +75,10 @@ def performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNorm
 		geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings
 
 	return geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings
+
+
+def offsetReLU(self, Z):
+	Z = Z - useGeometricHashingProbabilisticKeypointsNonlinearityOffset
+	A = self.activationFunction(Z)
+	return A
+

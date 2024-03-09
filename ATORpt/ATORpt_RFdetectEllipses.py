@@ -7,7 +7,7 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Usage:
 python ATORpt_RFdetectEllipses.py images/leaf1.png

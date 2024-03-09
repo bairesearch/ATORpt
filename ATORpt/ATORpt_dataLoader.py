@@ -9,6 +9,9 @@ MIT License
 # Installation:
 see ATORpt_main.py
 
+# Usage:
+See ATORpt_main.py
+
 # Description:
 ATORpt dataLoader
 
@@ -73,13 +76,18 @@ if(databaseName == "ALOI-VIEW"):
 			printe("loadALOIVIEWimage error: currently requires (batchSize == 1)")
 		return imagesTensor
 		
-	def getALOIVIEWImagePath(imageIndex, viewIndex):
-		viewName = str(int(viewIndex*(360/ALOIdatabaseNumberOfViews)))
-		imageName = str(imageIndex) + "_r" + viewName + ".png"
-		imagePath = databaseRoot + "aloi_view/png/" + str(imageIndex) + "/" + imageName
-		return imagePath
-		
-		
+	def getALOIVIEWImagePath(imageIndices, viewIndices):
+		imagePathList = []
+		print("imageIndices.shape = ", imageIndices.shape)
+		for i in range(imageIndices.shape[0]):
+			imageIndex = imageIndices[i].item()
+			viewIndex = viewIndices[i].item()
+			viewName = str(int(viewIndex*(360/ALOIdatabaseNumberOfViews)))
+			imageName = str(imageIndex) + "_r" + viewName + ".png"
+			imagePath = databaseRoot + "aloi_view/png/" + str(imageIndex) + "/" + imageName
+			imagePathList.append(imagePath)
+		return imagePathList
+			
 elif(databaseName == "MNIST"):
 	from torchvision.datasets.mnist import MNIST
 

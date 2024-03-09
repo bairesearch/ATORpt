@@ -1,4 +1,4 @@
-"""ATORpt_ATOR.py
+"""ATORpt_E2EATOR.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -9,8 +9,11 @@ MIT License
 # Installation:
 see ATORpt_main.py
 
+# Usage:
+See ATORpt_main.py
+
 # Description:
-ATORpt geometric hashing
+ATORpt E2E ATOR
 
 """
 
@@ -20,13 +23,13 @@ import torch.nn as nn
 import torchvision.transforms as T
 
 from ATORpt_globalDefs import *
-import ATORpt_geometricHashing
-import ATORpt_featureDetectorCNN
-import ATORpt_AMANN
-import ATORpt_operations
+import ATORpt_E2EgeometricHashing
+import ATORpt_E2EfeatureDetectorCNN
+import ATORpt_E2EAMANN
+import ATORpt_E2Eoperations
 #from torchdim import dims
 
-if(debugGeometricHashingHardcoded):
+if(debugGeometricHashingParallel):
 	import matplotlib.pyplot as plt
 	import matplotlib.cm as cm
 
@@ -39,32 +42,32 @@ class ATORmodelClass(nn.Module):
 		numberOfChannels, imageHeight, imageWidth = inputShape
 		self.numberOfPatches = numberOfPatches
 
-		self.patchSize = ATORpt_operations.getPatchSize(inputShape, numberOfPatches)
+		self.patchSize = ATORpt_E2Eoperations.getPatchSize(inputShape, numberOfPatches)
 
-		self.numberOfInputDimensions = ATORpt_operations.getInputDim(inputShape, self.patchSize)
+		self.numberOfInputDimensions = ATORpt_E2Eoperations.getInputDim(inputShape, self.patchSize)
 
-		self.featureDetectorPatchSize = ATORpt_operations.getPatchSize(inputShape, imageWidth)
-		self.featureDetectorInputDim = ATORpt_operations.getInputDim(inputShape, self.featureDetectorPatchSize)
+		self.featureDetectorPatchSize = ATORpt_E2Eoperations.getPatchSize(inputShape, imageWidth)
+		self.featureDetectorInputDim = ATORpt_E2Eoperations.getInputDim(inputShape, self.featureDetectorPatchSize)
 		self.featureDetectorNumPatches = imageWidth
 
-		self.sequenceLength = ATORpt_operations.getInputLayerNumTokens(numberOfPatches)
+		self.sequenceLength = ATORpt_E2Eoperations.getInputLayerNumTokens(numberOfPatches)
 		
 		if(useGeometricHashingCNNfeatureDetector):
-			self.featureDetectorCNN = ATORpt_featureDetectorCNN.FeatureDetectorCNNClass(self.featureDetectorNumPatches)
+			self.featureDetectorCNN = ATORpt_E2EfeatureDetectorCNN.FeatureDetectorCNNClass(self.featureDetectorNumPatches)
 		else:
 			pass
 			#use custom feature detector (e.g. Heitger et al.)
 
-		self.geometricHashing = ATORpt_geometricHashing.GeometricHashingClass(self.featureDetectorInputDim, self.featureDetectorNumPatches)
+		self.geometricHashing = ATORpt_E2EgeometricHashing.GeometricHashingClass(self.featureDetectorInputDim, self.featureDetectorNumPatches)
 
 	def forward(self, images):
 		
 		batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
 					
-		tokens = ATORpt_operations.createLinearPatches(images, self.numberOfPatches)
-		posEmbeddings = ATORpt_operations.getPositionalEmbeddingsAbsolute(self.numberOfPatches)
+		tokens = ATORpt_E2Eoperations.createLinearPatches(images, self.numberOfPatches)
+		posEmbeddings = ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute(self.numberOfPatches)
 		
-		#ATORpt_operations.printPixelMap(posEmbeddings, tokens)
+		#ATORpt_E2Eoperations.printPixelMap(posEmbeddings, tokens)
 		
 		featureDetectorInput = images
 

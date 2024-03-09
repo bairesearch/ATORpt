@@ -1,4 +1,4 @@
-"""ATORpt_AMANN.py
+"""ATORpt_E2EAMANN.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -7,10 +7,13 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ATORpt_AMANN.py
+see ATORpt_main.py
+
+# Usage:
+See ATORpt_main.py
 
 # Description:
-ATORpt AMANN - additive-multiplicative artificial neural network
+ATORpt E2E AMANN - additive-multiplicative artificial neural network
 
 """
 

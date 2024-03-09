@@ -9,6 +9,9 @@ MIT License
 # Installation:
 see ATORpt_main.py
 
+# Usage:
+See ATORpt_main.py
+
 # Description:
 ATORpt pta image functions (pytorch equivalent to tensorflow addons tfa image functions)
 

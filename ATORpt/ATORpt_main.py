@@ -9,40 +9,38 @@ MIT License
 # Installation:
 Python 3 and pytorch 2.2+
 
-useATORCserialGeometricHashing:
-	install all ATOR C++ prerequisites
-	conda create --name pytorchsenv2 python=3.8
-	source activate pytorchsenv2
-	pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-	pip3 install tqdm
-	pip3 install transformers
-	pip3 install click
-	pip3 install opencv-python opencv-contrib-python
-	pip3 install kornia
-!useATORCserialGeometricHashing:
-	conda create -n pytorchsenv
-	source activate pytorchsenv
-	conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
-	conda install tqdm
-	conda install transformers
-	conda install matplotlib
-	pip install opencv-python opencv-contrib-python
-	pip install kornia
-
+conda create --name pytorchsenv2 python=3.8
+source activate pytorchsenv2
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip3 install tqdm
+pip3 install transformers
+pip3 install click
+pip3 install opencv-python opencv-contrib-python
+pip3 install kornia
+pip3 install matplotlib
+install all ATOR C++ prerequisites	(required for useATORCPPserial only)
+pip3 install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
+	pip3 install opencv-python pycocotools matplotlib onnxruntime onnx
+	download default checkpoint (ViT_h SAM model) https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
+	
 # Usage:
 source activate pytorchsenv2
 python3 ATORpt_main.py
 
 # Description:
-ATORpt main - train Axis Transformation Object Recognition neural network (ATOR)
+ATORpt main - Axis Transformation Object Recognition (ATOR)
 
-ATORpt is a hardware accelerated version of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
+ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
 - supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
-- useATORCserialGeometricHashing:
-	- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
-	- requires all ATOR C++ prerequisites 
-- !useATORCserialGeometricHashing:
+- !useEndToEndNeuralModel (useStandardVIT)
+	useATORPTparallel:
+		- uses third party feature detectors (point feature and segmenter: segment-anything)
+		- uses parallel pytorch ATOR implementation
+	useATORCPPserial:
+		- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
+		- requires all ATOR C++ prerequisites 
+- useEndToEndNeuralModel (!useStandardVIT):
 	- ATORpt contains various modules for an end-to-end neural model of ATOR
 	- ATORpt is designed to perform transformations of all image pixel coordinates in parallel
 	- architecture layout provided (implementation incomplete)
@@ -61,20 +59,24 @@ Requires upgrading to support 3DOD (3D input object data)
 import torch as pt
 import torch.nn as nn
 from tqdm import tqdm
+
 from ATORpt_globalDefs import *
 import ATORpt_dataLoader
 if(useStandardVIT):
 	import ATORpt_vitStandard
-	import ATORpt_geometricHashingC
+	if(useATORCPPserial):
+		import ATORpt_CPPATOR
+	elif(useATORPTparallel):
+		import ATORpt_PTATOR
 	import torch.optim as optim
 	from torchvision import transforms, datasets
 	from transformers import ViTFeatureExtractor, ViTForImageClassification
 else:
 	import ATORpt_vitCustom
+	import ATORpt_E2EATOR
+	import ATORpt_E2Eoperations
 	from torch.optim import Adam
 	from torch.nn import CrossEntropyLoss
-	import ATORpt_ATOR
-	import ATORpt_operations
 
 device = pt.device('cuda')
 
@@ -101,13 +103,16 @@ else:
 		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
 		inputShape = databaseImageShape
 
-		#ATORpatchSize = ATORpt_operations.getPatchSize(inputShape, ATORnumberOfPatches)
-		patchSizeVITlocal = ATORpt_operations.getPatchSize(inputShape, VITnumberOfPatches)
+		#ATORpatchSize = ATORpt_E2Eoperations.getPatchSize(inputShape, ATORnumberOfPatches)
+		patchSizeVITlocal = ATORpt_E2Eoperations.getPatchSize(inputShape, VITnumberOfPatches)
 
+		print("inputShape = ", inputShape)
+		print("patchSizeVITlocal = ", patchSizeVITlocal)
+		
 		if(useClassificationVIT):
-			numberOfInputDimensionsVIT = ATORpt_operations.getInputDim(inputShape, patchSizeVITlocal)
+			numberOfInputDimensionsVIT = ATORpt_E2Eoperations.getInputDim(inputShape, patchSizeVITlocal)
 			if(useParallelisedGeometricHashing):
-				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions   #mandatory (currently required for ATORpt_operations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
+				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions   #mandatory (currently required for ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
 			else:
 				numberOfHiddenDimensionsVIT = 20   #arbitrary
 			numberOfHeadsVIT = 1	#requirement; numberOfHiddenDimensionsVIT % numberOfHeadsVIT == 0
@@ -116,7 +121,7 @@ else:
 		ATORmodel = None
 		if(useParallelisedGeometricHashing):
 			if(not positionalEmbeddingTransformationOnly):
-				ATORmodel = ATORpt_ATOR.ATORmodelClass(inputShape, ATORnumberOfPatches)
+				ATORmodel = ATORpt_E2EATOR.ATORmodelClass(inputShape, ATORnumberOfPatches)
 				modelParameters = modelParameters + list(ATORmodel.parameters()) 
 		if(useClassificationSnapshots):
 			VITmodel = None
@@ -154,15 +159,24 @@ if(useStandardVIT):
 			total = 0
 			print("epoch = ", epoch)
 			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
-				print("batch = ", batch)
+				#print("batch = ", batch)
 				if(databaseName == "ALOI-VIEW"):
-					imageIndex, viewIndex = batch
-					labels = imageIndex
-					imageIndex = imageIndex.item()
-					viewIndex = viewIndex.item()
-					imagePath = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndex, viewIndex)
-					transformedPatches = ATORpt_geometricHashingC.generateATORpatches(imagePath, train)	#normalisedsnapshots
-
+					imageIndices, viewIndices = batch
+					print("imageIndices = ", imageIndices)
+					print("viewIndices = ", viewIndices)
+					labels = imageIndices
+					imagePaths = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndices, viewIndices)
+				elif(databaseName == "MNIST"):
+					x, y = batch
+					x, y = x.to(device), y.to(device)
+					imagesLarge = x
+					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
+					
+				if(useATORCPPserial):
+					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
+				elif(useATORPTparallel):
+					transformedPatches = ATORpt_PTATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
+				
 				transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
 				artificialInputImages = transformedPatches.view(batchSize, VITnumberOfChannels, VITimageSize, VITimageSize)
 				print("labels = ", labels)
@@ -211,7 +225,7 @@ else:
 					x, y = batch
 					x, y = x.to(device), y.to(device)
 					imagesLarge = x
-					batchSize, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
+					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
 				for r in range(0, numberOfSpatialResolutions):
 					if(databaseName == "MNIST"):
 						if(useMultipleSpatialResolutions):
@@ -223,7 +237,7 @@ else:
 
 					if(useParallelisedGeometricHashing):
 						if(positionalEmbeddingTransformationOnly):
-							posEmbeddingsAbsoluteGeoNormalised = ATORpt_operations.getPositionalEmbeddingsAbsolute(VITnumberOfPatches)	#or ATORnumberOfPatches
+							posEmbeddingsAbsoluteGeoNormalised = ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute(VITnumberOfPatches)	#or ATORnumberOfPatches
 							posEmbeddingsAbsoluteGeoNormalised = pt.unsqueeze(posEmbeddingsAbsoluteGeoNormalised, dim=0)
 							posEmbeddingsAbsoluteGeoNormalised = posEmbeddingsAbsoluteGeoNormalised.repeat(batchSize, 1, 1)
 						else:

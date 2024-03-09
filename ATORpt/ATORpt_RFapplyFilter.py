@@ -7,10 +7,10 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Usage:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Description:
 ATORpt RF Filter - RF Filter transformations (pixel space)
@@ -60,24 +60,25 @@ def calculateFilterPixels(filterSize, numberOfDimensions, RFtype):
 
 def normaliseRFfilter(RFfilter, RFproperties):
 	# normalise ellipse respect to major/minor ellipticity axis orientation (WRT self)
-	RFfilterNormalised = transformRFfilterTF(RFfilter, RFproperties)
+	RFfilterNormalised = transformRFfilter(RFfilter, RFproperties)
 	# RFfilterNormalised = RFfilter
 	return RFfilterNormalised
 
 
-def transformRFfilterTF(RFfilter, RFpropertiesParent):
+def transformRFfilter(RFfilter, RFpropertiesParent):
 	if RFpropertiesParent.numberOfDimensions == 2:
 		centerCoordinates = [-RFpropertiesParent.centerCoordinates[0], -RFpropertiesParent.centerCoordinates[1]]
+		print("centerCoordinates = ", centerCoordinates)
 		axesLength = 1.0 / RFpropertiesParent.axesLength[0]  # [1.0/RFpropertiesParent.axesLength[0], 1.0/RFpropertiesParent.axesLength[1]]
 		angle = -RFpropertiesParent.angle
-		RFfilterTransformed = transformRFfilterTF2D(RFfilter, centerCoordinates, axesLength, angle)
+		RFfilterTransformed = transformRFfilter2D(RFfilter, centerCoordinates, axesLength, angle)
 	elif RFpropertiesParent.numberOfDimensions == 3:
-		print("error transformRFfilterWRTparentTF: RFpropertiesParent.numberOfDimensions == 3 not yet coded")
+		print("error transformRFfilterWRTparent: RFpropertiesParent.numberOfDimensions == 3 not yet coded")
 		quit()
 	return RFfilterTransformed
 
 
-def transformRFfilterTF2D(RFfilter, centerCoordinates, axesLength, angle):
+def transformRFfilter2D(RFfilter, centerCoordinates, axesLength, angle):
 	# CHECKTHIS: 2D code only;
 	RFfilter = RFfilter.permute(2, 0, 1)	#ensure channels dim is first
 	#RFfilterTransformed = pt.unsqueeze(RFfilter, 0)  # add batch dim
@@ -95,11 +96,11 @@ def transformRFfilterTF2D(RFfilter, centerCoordinates, axesLength, angle):
 	RFfilter = RFfilter.permute(1, 2, 0)	#ensure channels dim is last
 	return RFfilterTransformed
 
-def rotateRFfilterTF(RFfilter, RFproperties):
-	return rotateRFfilterTF(-RFproperties.angle)
+def rotateRFfilter(RFfilter, RFproperties):
+	return rotateRFfilter(-RFproperties.angle)
 
 
-def rotateRFfilterTF(RFfilter, angle):
+def rotateRFfilter(RFfilter, angle):
 	RFfilter = pt.unsqueeze(RFfilter, 0)  # add extra dimension for num_images
 	return RFfilterNormalised
 

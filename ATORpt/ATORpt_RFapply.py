@@ -7,10 +7,10 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Usage:
-See ATORpt_main.py
+See ATORpt_RFmain.py
 
 # Description:
 ATORpt RF apply
@@ -33,6 +33,7 @@ import ATORpt_RFapplyFilter
 import ATORpt_RFpropertiesClass
 import ATORpt_RFapplyFilter
 import ATORpt_RFoperations
+import ATORpt_operations
 if(RFuseParallelProcessedCNN):
 	import ATORpt_RFapplyCNN
 
@@ -53,11 +54,12 @@ class ATORneuronClass():
 		self.RFpropertiesNormalisedWRTparent = None
 		self.RFpropertiesNormalisedGlobal = normaliseGlobalRFproperties(RFproperties, resolutionProperties.resolutionFactor)
 		if RFsaveRFfiltersAndImageSegments:
-			self.RFfilter = RFfilter
-			self.RFfilterNormalised = ATORpt_RFapplyFilter.normaliseRFfilter(RFfilter, RFproperties)
-			self.RFfilterNormalisedWRTparent = None
-			self.RFImage = RFImage
+			if(RFsaveRFfilters):
+				self.RFfilter = RFfilter
+				self.RFfilterNormalised = ATORpt_RFapplyFilter.normaliseRFfilter(RFfilter, RFproperties)
+				self.RFfilterNormalisedWRTparent = None
 			if(RFsaveRFimageSegments):
+				self.RFImage = RFImage
 				self.RFImageNormalised = ATORpt_RFapplyFilter.normaliseRFfilter(RFImage, RFproperties)
 				self.RFImageNormalisedWRTparent = None
 		self.neuronComponents = []
@@ -333,20 +335,6 @@ def normaliseLocalRFproperties(RFproperties):
 		ATORpt_RFgenerateTri.normaliseLocalTriProperties(RFproperties)
 
 
-def generateRFfilters(resolutionProperties, generateRFfiltersEllipse, generateRFfiltersTri):
-	RFfiltersFeatureTypeList = []
-	RFfiltersPropertiesFeatureTypeList = []
-	if generateRFfiltersEllipse:
-		RFfiltersList, RFfiltersPropertiesList = ATORpt_RFgenerateEllipse.generateRFfiltersEllipse(resolutionProperties)
-		RFfiltersFeatureTypeList.append(RFfiltersList)
-		RFfiltersPropertiesFeatureTypeList.append(RFfiltersPropertiesList)
-	if generateRFfiltersTri:
-		RFfiltersList, RFfiltersPropertiesList = ATORpt_RFgenerateTri.generateRFfiltersTri(resolutionProperties)
-		RFfiltersFeatureTypeList.append(RFfiltersList)
-		RFfiltersPropertiesFeatureTypeList.append(RFfiltersPropertiesList)
-	return RFfiltersFeatureTypeList, RFfiltersPropertiesFeatureTypeList
-
-
 def applyRFfilters(resolutionProperties, RFfiltersTensor, numberOfDimensions, RFfiltersPropertiesList2, inputImageSegments=None, inputImage=None, RFfiltersConv=None):
 	# perform convolution for each filter size;
 	axesLengthMax, filterRadius, filterSize = ATORpt_RFapplyFilter.getFilterDimensions(resolutionProperties)
@@ -402,7 +390,7 @@ def generateRFtypeTriFromPointFeatureSets(resolutionProperties, RFpropertiesList
 			coordinatesList.append(RFpropertiesPointFeature.centerCoordinates)
 		coordinates = np.array(coordinatesList)
 		candidates = np.array(coordinatesList)
-		closestCoordinates, closestIndices = findKclosestCoordinates2D(coordinates, candidates, triNumberPointFeatures)
+		closestCoordinates, closestIndices = ATORpt_operations.findKclosestCoordinates2D(coordinates, candidates, triNumberPointFeatures)
 		for RFpropertiesPointFeatureIndex, RFpropertiesPointFeature in enumerate(RFpropertiesListPointFeatures):
 			print("deriveRFtriPropertiesFromPointFeatureSet: closestIndices[RFpropertiesPointFeatureIndex] = ", closestIndices[RFpropertiesPointFeatureIndex])
 			RFpropertiesTri = deriveRFtriPropertiesFromPointFeatureSet(resolutionProperties, RFpropertiesListPointFeatures, closestIndices[RFpropertiesPointFeatureIndex])
@@ -410,22 +398,6 @@ def generateRFtypeTriFromPointFeatureSets(resolutionProperties, RFpropertiesList
 				RFpropertiesList.append(RFpropertiesTri)
 	return RFpropertiesList
 	
-def findKclosestCoordinates2D(coordinates, candidates, k):
-	print("coordinates = ", coordinates)
-	print("candidates = ", candidates)
-	candidates = candidates[:, np.newaxis, :]
-	distances = np.sqrt(np.sum((coordinates - candidates)**2, axis=2))
-	closestIndices = np.argsort(distances, axis=1)[:, :k]
-	closestCoordinates = np.take_along_axis(coordinates, closestIndices, axis=0)
-	return closestCoordinates, closestIndices
-
-def findKclosestCoordinates3D(coordinates, candidates, k):
-	candidates = candidates[:, np.newaxis, :]
-	distances = np.sqrt(np.sum((coordinates - candidates)**2, axis=2))
-	closestIndices = np.argsort(distances, axis=1)[:, :k]
-	closestCoordinates = np.take_along_axis(coordinates, closestIndices, axis=0)
-	return closestCoordinates, closestIndices
-
 def deriveRFtriPropertiesFromPointFeatureSet(resolutionProperties, RFpropertiesListPointFeatures, RFpropertiesPointFeaturesTriIndices):
 	filterColour = RFpropertiesListPointFeatures[0].colour
 	filterCenterCoordinates, filterSize, axesLength, angle = calculateTriangleDimensions(RFpropertiesPointFeaturesTriIndices)

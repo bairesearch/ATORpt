@@ -7,7 +7,10 @@ Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-see ATORpt_main.py
+See ATORpt_RFmain.py
+
+# Usage:
+See ATORpt_RFmain.py
 
 # Description:
 ATORpt RF global definitions
@@ -52,7 +55,10 @@ numberOfResolutions = 4
 #****** ATORpt_RFapply ***********
 
 RFsaveRFfiltersAndImageSegments = True
-RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
+if(RFsaveRFfiltersAndImageSegments):
+	RFsaveRFfilters = True
+	RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
+
 
 imageSizeBase = (256, 256)
 
