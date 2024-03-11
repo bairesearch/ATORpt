@@ -36,15 +36,15 @@ def performGeometricHashingParallel(keypointCoordinates, pixelCoordinates, pixel
 	if(debugGeometricHashingParallel):
 		#artificially set position of first pixel and first set of keypoints to good combination for visualisation
 		firstSequenceIndex = 0
-		pixelCoordinates[firstSequenceIndex][:][xAxis] = 0.2
-		pixelCoordinates[firstSequenceIndex][:][yAxis] = 0.6
+		pixelCoordinates[firstSequenceIndex][:][xAxisGeometricHashing] = 0.2
+		pixelCoordinates[firstSequenceIndex][:][yAxisGeometricHashing] = 0.6
 		#pixelValues[firstSequenceIndex] = 1.0
-		keypointCoordinates[firstSequenceIndex][0][xAxis] = 0.7
-		keypointCoordinates[firstSequenceIndex][0][yAxis] = 0.3
-		keypointCoordinates[firstSequenceIndex][1][xAxis] = 0.4
-		keypointCoordinates[firstSequenceIndex][1][yAxis] = 0.2
-		keypointCoordinates[firstSequenceIndex][2][xAxis] = 0.1
-		keypointCoordinates[firstSequenceIndex][2][yAxis] = 0.8
+		keypointCoordinates[firstSequenceIndex][0][xAxisGeometricHashing] = 0.7
+		keypointCoordinates[firstSequenceIndex][0][yAxisGeometricHashing] = 0.3
+		keypointCoordinates[firstSequenceIndex][1][xAxisGeometricHashing] = 0.4
+		keypointCoordinates[firstSequenceIndex][1][yAxisGeometricHashing] = 0.2
+		keypointCoordinates[firstSequenceIndex][2][xAxisGeometricHashing] = 0.1
+		keypointCoordinates[firstSequenceIndex][2][yAxisGeometricHashing] = 0.8
 	
 	#print("pixelValues[0] = ", pixelValues[0])
 	print("pixelCoordinates.shape = ", pixelCoordinates.shape)
@@ -63,9 +63,9 @@ def performGeometricHashingParallel(keypointCoordinates, pixelCoordinates, pixel
 	#   \_\
 	#  kp1 kp0  
 
-	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 1, 0, yAxis)
-	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 0, 1, yAxis)
-	keypointCoordinates = keypointSwap(keypointCoordinates, 0, 1, 2, xAxis)
+	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 1, 0, yAxisGeometricHashing)
+	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 0, 1, yAxisGeometricHashing)
+	keypointCoordinates = keypointSwap(keypointCoordinates, 0, 1, 2, xAxisGeometricHashing)
 
 	#apply hardcoded geometric hashing function;
 
@@ -91,20 +91,20 @@ def performGeometricHashingParallel(keypointCoordinates, pixelCoordinates, pixel
 	#step 3 (scale x - wrt keypointCoordinates [0, 1]):   
 	#1a. Scale object data such that the object triangle side is of same length as a predefined side of a predefined triangle
 	#Fig 33
-	keypointsTriBaseSizeX = pt.subtract(keypointCoordinates[:, 0, xAxis], keypointCoordinates[:, 1, xAxis])
-	pixelsX = pixelCoordinates[:, :, xAxis] 
+	keypointsTriBaseSizeX = pt.subtract(keypointCoordinates[:, 0, xAxisGeometricHashing], keypointCoordinates[:, 1, xAxisGeometricHashing])
+	pixelsX = pixelCoordinates[:, :, xAxisGeometricHashing] 
 	pixelsX = pt.divide(pixelsX, keypointsTriBaseSizeX.unsqueeze(1))
-	pixelCoordinates[:, :, xAxis] = pixelsX
+	pixelCoordinates[:, :, xAxisGeometricHashing] = pixelsX
 	ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step3")
 	#print("3 pixelCoordinates = ", pixelCoordinates)
 
 	#step 4 (scale y - wrt keypointCoordinates [1y, 2y]):
 	#3a. Scale object data on Y axis such that the third apex is the same perpendicular distance away from the side as is the case for the predefined triangle.
 	#Fig 34
-	keypointsTriHeightSize = pt.subtract(keypointCoordinates[:, 2, yAxis], keypointCoordinates[:, 1, yAxis])
-	pixelsY = pixelCoordinates[:, :, yAxis]
+	keypointsTriHeightSize = pt.subtract(keypointCoordinates[:, 2, yAxisGeometricHashing], keypointCoordinates[:, 1, yAxisGeometricHashing])
+	pixelsY = pixelCoordinates[:, :, yAxisGeometricHashing]
 	pixelsY = pt.divide(pixelsY, keypointsTriHeightSize.unsqueeze(1))
-	pixelCoordinates[:, :, yAxis] = pixelsY
+	pixelCoordinates[:, :, yAxisGeometricHashing] = pixelsY
 	ATORpt_operations.printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index=0, text="step4")
 	#print("4 pixelCoordinates = ", pixelCoordinates)
 
@@ -113,9 +113,9 @@ def performGeometricHashingParallel(keypointCoordinates, pixelCoordinates, pixel
 	#Fig 35
 	#xAxisDistanceBetweenThirdApexOfObjectTriangleAndSideLeftApex = calculateXaxisDistanceBetweenThirdApexOfObjectTriangleAndSideLeftApex(transformedObjectTriangle, side)
 	#shearRequired4a = (xAxisDistanceBetweenThirdApexOfObjectTriangleAndSideLeftApex - (lengthOfPredefinedTriangleSide/2))/perpendicularDistanceBetweenThirdApexOfPredefinedTriangleAndSide;		
-	keypointsTriBaseCentreX = pt.add(keypointCoordinates[:, 0, xAxis], keypointCoordinates[:, 1, xAxis])/2.0
-	keypointsTriTipVecX = pt.subtract(keypointCoordinates[:, 2, xAxis], keypointsTriBaseCentreX)	#CHECKTHIS
-	keypointsTriTipVecY = pt.subtract(keypointCoordinates[:, 2, yAxis], keypointCoordinates[:, 0, yAxis])
+	keypointsTriBaseCentreX = pt.add(keypointCoordinates[:, 0, xAxisGeometricHashing], keypointCoordinates[:, 1, xAxisGeometricHashing])/2.0
+	keypointsTriTipVecX = pt.subtract(keypointCoordinates[:, 2, xAxisGeometricHashing], keypointsTriBaseCentreX)	#CHECKTHIS
+	keypointsTriTipVecY = pt.subtract(keypointCoordinates[:, 2, yAxisGeometricHashing], keypointCoordinates[:, 0, yAxisGeometricHashing])
 	shearScalar = pt.divide(keypointsTriTipVecX, keypointsTriTipVecY)
 	shearMatrix = createShearMatrix2Dvec(shearScalar, horizontalAxis=True)
 	pixelCoordinates = applyShear2D(pixelCoordinates, shearMatrix)
@@ -143,8 +143,8 @@ def keypointSwap(keypoints, keypointAindex, keypointBindex, keypointCindex, axis
 	keypointAindexNew = keypointAindexNew.unsqueeze(-1)
 	keypointBindexNew = keypointBindexNew.unsqueeze(-1)
 
-	keypointsX = keypoints[:, :, xAxis]
-	keypointsY = keypoints[:, :, yAxis]
+	keypointsX = keypoints[:, :, xAxisGeometricHashing]
+	keypointsY = keypoints[:, :, yAxisGeometricHashing]
 	keyPointAnewX = pt.gather(keypointsX, 1, keypointAindexNew)
 	keyPointAnewY = pt.gather(keypointsY, 1, keypointAindexNew)
 	keyPointBnewX = pt.gather(keypointsX, 1, keypointBindexNew)
@@ -181,7 +181,7 @@ def createRotationMatrix2D(phi):
 		rotationMatrixList = []
 		batchSize = phi.shape[0] 
 		for batchIndex in range(batchSize):
-			if(xAxis == 0):
+			if(xAxisGeometricHashing == 0):
 				rotationMatrix = pt.tensor([[c[batchIndex], -s[batchIndex]], [s[batchIndex], c[batchIndex]]])	#pt.stack([pt.stack([c[batchIndex], -s[batchIndex]]), pt.stack([s[batchIndex], c[batchIndex]])])
 			else:
 				rotationMatrix = pt.tensor([[-s[batchIndex], c[batchIndex]], [c[batchIndex], s[batchIndex]]])
@@ -214,7 +214,7 @@ def createShearMatrix2D(m, horizontalAxis):
 	#m = 1 / pt.tan(pt.tensor(theta))
 	if(useGeometricHashingHardcodedParallelisedDeformation):
 		b = m.shape[0]
-		if((horizontalAxis and xAxis == 0) or (not horizontalAxis and xAxis != 0)):
+		if((horizontalAxis and xAxisGeometricHashing == 0) or (not horizontalAxis and xAxisGeometricHashing != 0)):
 			shearMatrix = pt.stack([pt.stack([pt.ones(b), pt.zeros(b)], dim=-1), pt.stack([m, pt.ones(b)], dim=-1)], dim=-2)
 		else:
 			shearMatrix = pt.stack([pt.stack([pt.ones(b), m], dim=-1), pt.stack([pt.zeros(b), pt.ones(b)], dim=-1)], dim=-2)
@@ -223,7 +223,7 @@ def createShearMatrix2D(m, horizontalAxis):
 		shearMatrixList = []
 		batchSize = m.shape[0] 
 		for batchIndex in range(batchSize):
-			if((horizontalAxis and xAxis == 0) or (not horizontalAxis and xAxis != 0)):
+			if((horizontalAxis and xAxisGeometricHashing == 0) or (not horizontalAxis and xAxisGeometricHashing != 0)):
 				shearMatrix = pt.tensor([[1, 0], [m[batchIndex], 1]])	
 			else:
 				shearMatrix = pt.tensor([[1, m[batchIndex]], [0, 1]])
@@ -248,7 +248,7 @@ def calculateAngleOfVector(vec1):
 	#radians
 	#calculate angle of vector relative to positive x axis
 	batchSize = vec1.shape[0]
-	if(xAxis == 0):
+	if(xAxisGeometricHashing == 0):
 		vec2 = pt.unsqueeze(pt.tensor([1.0, 0.0]), 0).repeat(batchSize, 1)
 	else:
 		vec2 = pt.unsqueeze(pt.tensor([0.0, 1.0]), 0).repeat(batchSize, 1)
@@ -258,10 +258,10 @@ def calculateAngleOfVector(vec1):
 
 def calculateAngleBetweenVectors2D(vec1, vec2):
 	#radians
-	#if(vect2[xAxis] == vect1[xAxis]):
+	#if(vect2[xAxisGeometricHashing] == vect1[xAxisGeometricHashing]):
 	#	angleBetweenVectors2D = 0.0
 	#else:
-	#	angleBetweenVectors2D = pt.atan((vect2[yAxis] - vect1[yAxis]) / (vect2[xAxis] - vect1[xAxis]))
+	#	angleBetweenVectors2D = pt.atan((vect2[yAxisGeometricHashing] - vect1[yAxisGeometricHashing]) / (vect2[xAxisGeometricHashing] - vect1[xAxisGeometricHashing]))
 	numerator = batchedDotProduct(vec1, vec2)
 	denominator = pt.multiply(pt.linalg.norm(vec1, dim=1), pt.linalg.norm(vec2, dim=1)) 
 	angleBetweenVectors2D = pt.acos(pt.divide(numerator, denominator))	#interior angle

@@ -24,8 +24,8 @@ pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
-debugGeometricHashingParallel = True	#print geometrically transformed tensors
-debugGeometricHashingParallel2 = True
+debugGeometricHashingParallel = False	#print geometrically transformed tensors
+debugGeometricHashingParallel2 = False
 
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -40,7 +40,7 @@ else:
 	elif(useATORPTparallel):
 		databaseName = "ALOI-VIEW"	#"MNIST"	#optional
 if(databaseName == "ALOI-VIEW"):
-	databaseRoot = "/media/systemusername/datasets/ALOI-VIEW/" 
+	databaseRoot = "/media/rich/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
 	numberOfOutputDimensions = 1000	
 	debugProcessSingleImage = True
@@ -133,8 +133,6 @@ if(useEndToEndNeuralModel):
 	multiplicativeEmulationFunctionPreMinVal = 1e-9
 	multiplicativeEmulationFunctionPreMaxVal = 1e+9	#or activationMaxVal (effective)
 	multiplicativeEmulationFunctionPostMaxVal = 20.0
-	yAxis = 0	#CHECKTHIS (openCV/torchvision standard: H, W)
-	xAxis = 1
 else:
 	useStandardVIT = True	#required
 	trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 
@@ -151,7 +149,7 @@ else:
 	normaliseSnapshotLength = 30
 	numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features
-	VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#must support sqrt
+	VITmaxNumberATORpatches = 100	#max number of normalised patches per image (spare patches are filled with dummy var)	#must support sqrt
 	VITmaxNumberATORpolysPerZoom = VITmaxNumberATORpatches//numberOfZoomLevels	#300	#CHECKTHIS
 	ATORnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfPatches = VITmaxNumberATORpatches
@@ -165,21 +163,29 @@ else:
 	VITnumberOfHeads = 8
 	VITnumberOfLayers = 3
 	VITnumberOfClasses = databaseNumberOfClasses
-	yAxis = 0	#CHECKTHIS
-	xAxis = 1
-	inputfolder = "/media/systemusername/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
+	inputfolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
 	numberOfGeometricDimensions = 2	#2D object data (2DOD)
 	if(useATORPTparallel):
 		ATORmaxNumberOfPolys = VITmaxNumberATORpatches
 		keypointPadValue = -1
-		ATORpatchPadding = 2	#0, 2
-		ATORpatchUpscaling = 2	#0, 2
+		meshPadValue = -1
+		ATORpatchPadding = 1	#1, 2
+		ATORpatchUpscaling = 1	#1, 2
 		ATORpatchSize = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding)	#use larger patch size to preserve information during resampling
 		useGeometricHashingHardcodedParallelisedDeformation = True	#apply multiple rotation matrices in parallel
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
 		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
-		keypointDetectionRelaxedMinXYdiff = 5	#minimum difference along an X, Y axis for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
+		keypointDetectionMinXYdiff = 5	#minimum difference along an X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
+		ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints = 3	#must be >= 2
+		snapshotRenderer = "pytorch3D" #torchgeometry #pytorch3D - installation CUDA incompatibilities (cub?; "ImportError: libtorch_cuda_cu.so: cannot open shared object file: No such file or directory")
+		if(snapshotRenderer == "pytorch3D"):
+			snapshotRenderTris = True	#else quads	#snapshots must be rendered using artificial Tri polygons (generated from pixel quads)
+			snapshotRenderZdimVal = 10.0	#1.0	#50.0
+			snapshotRenderExpectColorsDefinedForVerticesNotFaces = True
+			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+				snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal = 0
+			snapshotRenderDebug = True	#draw original image (not snapshot) to debug the renderer
 	elif(useATORCPPserial):
 		trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 
 		batchSize = 1	#process images serially
@@ -189,9 +195,9 @@ else:
 		exeFolder = "exe/" 
 		ATORCexe = "ATOR.exe"
 		FDCexe = "FD.exe"
-		exefolder = "/media/systemusername/large/source/ANNpython/ATORpt/ATORpt/exe"	#location of ATOR.exe, FD.exe
+		exefolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/exe"	#location of ATOR.exe, FD.exe
 		ATOR_DATABASE_FILESYSTEM_DEFAULT_DATABASE_NAME = "ATORfsdatabase/"	#sync with ATORdatabaseFileIO.hpp
-		ATOR_DATABASE_FILESYSTEM_DEFAULT_SERVER_OR_MOUNT_NAME = "/media/systemusername/large/source/ANNpython/ATORpt/"	#sync with ATORdatabaseFileIO.hpp
+		ATOR_DATABASE_FILESYSTEM_DEFAULT_SERVER_OR_MOUNT_NAME = "/media/rich/large/source/ANNpython/ATORpt/"	#sync with ATORdatabaseFileIO.hpp
 		ATOR_DATABASE_CONCEPT_NAME_SUBDIRECTORY_INDEX_NUMBER_OF_LEVELS = 3 	#eg e/x/a/example
 		ATOR_DATABASE_TEST_FOLDER_NAME = "test"	#sync with ATORdatabaseFileIO.hpp
 		ATOR_DATABASE_TRAIN_FOLDER_NAME = "train"	#sync with ATORdatabaseFileIO.hpp
@@ -206,6 +212,15 @@ else:
 		assert (normaliseSnapshotLength == ATOR_METHOD_2DOD_NORM_SNAPSHOT_X)
 		assert (numberOfZoomLevels == ATOR_METHOD2DOD_NUMBER_OF_SNAPSHOT_ZOOM_LEVELS)		
 
+xAxisATORmodel = 0	#ATOR model assumes x,y coordinates
+yAxisATORmodel = 1
+xAxisGeometricHashing = xAxisATORmodel	#geometric hashing assumes x,y coordinates (used by renderer also)
+yAxisGeometricHashing = yAxisATORmodel
+xAxisFeatureMap = xAxisATORmodel	#ATOR feature map assumes x,y coordinates
+yAxisFeatureMap = yAxisATORmodel
+xAxisViT = 1	#ViT assumes y,x patch coordinates (standard opencv/TF image coordinates convention also)
+xAxisViT = 0
+	
 def printe(str):
 	print(str)
 	exit()

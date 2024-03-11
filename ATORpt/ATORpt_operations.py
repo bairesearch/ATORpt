@@ -28,7 +28,7 @@ from ATORpt_globalDefs import *
 def knn_search(points, k):
 	points = points.float()
 	dist_matrix = pt.cdist(points, points)
-	mask = pt.eye(points.shape[0], dtype=pt.bool)
+	mask = pt.eye(points.shape[0], dtype=pt.bool)	#ensure that sample keypoint is not added to nearest keypoints
 	dist_matrix[mask] = float('inf')
 	pointsKnearest = pt.topk(dist_matrix, k=k, dim=1, largest=False)
 	pointsKnearestValues = pointsKnearest.values
@@ -45,13 +45,13 @@ def printImage(image):
 def printFeatureMap(posEmbeddings, featureMapN):
 	if(debugGeometricHashingParallel):
 		print("printFeatureMap")
-		printImageCoordinates(posEmbeddings[:, xAxis], posEmbeddings[:, yAxis], featureMapN)
+		printImageCoordinates(posEmbeddings[:, xAxisFeatureMap], posEmbeddings[:, yAxisFeatureMap], featureMapN)
 
 def printPixelMap(posEmbeddings, tokens):
 	if(debugGeometricHashingParallel):
 		print("printPixelMap")
 		firstIndexInBatch = 0
-		printImageCoordinates(posEmbeddings[:, xAxis], posEmbeddings[:, yAxis], tokens[firstIndexInBatch])
+		printImageCoordinates(posEmbeddings[:, xAxisFeatureMap], posEmbeddings[:, yAxisFeatureMap], tokens[firstIndexInBatch])
 
 def printImageCoordinates(x, y, values):
 
@@ -95,27 +95,27 @@ def printKeypoints(keypointCoordinates):
 	if(debugGeometricHashingParallel):
 		print("printKeypoints")
 		keypointCoordinatesCombined = pt.reshape(keypointCoordinates, (keypointCoordinates.shape[0]*keypointCoordinates.shape[1], keypointCoordinates.shape[2]))	#combine keyPointA/keyPointB/keyPointC
-		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxis].shape)
+		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
 		#print("keypointCoordinatesCombined.shape = ", keypointCoordinatesCombined.shape)
 		#print("keypointValuesCombined.shape = ", keypointValuesCombined.shape)
-		printImageCoordinates(keypointCoordinatesCombined[:, xAxis], keypointCoordinatesCombined[:, yAxis], keypointValuesCombined)
+		printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValuesCombined)
 
 def printKeypointsIndex(keypointCoordinates, index):
 	if(debugGeometricHashingParallel):
 		print("printKeypointsIndex")
 		#print("keypointCoordinates = ", keypointCoordinates)
 		keypointCoordinatesCombined = keypointCoordinates[index, :, :]
-		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxis].shape)
+		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
 		#print("keypointCoordinatesCombined = ", keypointCoordinatesCombined)
 		#print("keypointValuesCombined = ", keypointValuesCombined)
-		printImageCoordinates(keypointCoordinatesCombined[:, xAxis], keypointCoordinatesCombined[:, yAxis], keypointValuesCombined[:])
+		printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValuesCombined[:])
 
 def printPixelCoordinates(pixelCoordinates, pixelValues):
 	if(debugGeometricHashingParallel):			
 		print("printPixelCoordinates")
 		#print("pixelCoordinates.shape = ", pixelCoordinates.shape)
 		#print("pixelValues.shape = ", pixelValues.shape)
-		printImageCoordinates(pixelCoordinates[:, :, xAxis], pixelCoordinates[:, :, yAxis], pixelValues)
+		printImageCoordinates(pixelCoordinates[:, :, xAxisGeometricHashing], pixelCoordinates[:, :, yAxisGeometricHashing], pixelValues)
 
 def printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index, text=None):
 	if(debugGeometricHashingParallel):			
@@ -123,7 +123,7 @@ def printPixelCoordinatesIndex(pixelCoordinates, pixelValues, index, text=None):
 		#print("pixelCoordinates.shape = ", pixelCoordinates.shape)
 		#print("pixelValues.shape = ", pixelValues.shape)
 		#pixelValues = pixelValues*0.5
-		printImageCoordinates(pixelCoordinates[index, :, xAxis], pixelCoordinates[index, :, yAxis], pixelValues[index])	
+		printImageCoordinates(pixelCoordinates[index, :, xAxisGeometricHashing], pixelCoordinates[index, :, yAxisGeometricHashing], pixelValues[index])	
 
 
 def pil_to_tensor(image):

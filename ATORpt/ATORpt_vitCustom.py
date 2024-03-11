@@ -61,7 +61,7 @@ class ViTClass(nn.Module):
 
 		print("images.shape = ", images.shape)
 		#batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
-		tokens = ATORpt_E2Eoperations.createLinearPatches(images, self.numberOfPatches)
+		tokens = ATORpt_E2Eoperations.createLinearPatches(images, self.numberOfPatches, False)
 		print("tokens.shape = ", tokens.shape)
 		tokens = self.linearMapper(tokens)
 		print("tokens.shape = ", tokens.shape)

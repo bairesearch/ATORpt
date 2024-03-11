@@ -20,10 +20,15 @@ ATORpt E2E operations
 import torch as pt
 import torch.nn as nn
 import numpy as np
+import ATORpt_operations
 
 import torch.nn.functional as F
 
 from ATORpt_globalDefs import *
+
+def printImage(image)
+	image = image.permute(0, 2, 1)	#place image back into C,H,W format
+	ATORpt_operations.printImage(image)
 
 def getInputLayerNumTokens(numberOfPatches):
 	inputLayerNumTokens = int(numberOfPatches ** 2)
@@ -76,13 +81,12 @@ def getPositionalEmbeddings(sequenceLength, d):
 			result[i][j] = np.sin(i / (10000 ** (j / d))) if j % 2 == 0 else np.cos(i / (10000 ** ((j - 1) / d)))
 	return result
 
-def getPositionalEmbeddingsAbsolute(numberOfPatches):
+def getPositionalEmbeddingsAbsolute(numberOfPatches, xAxis, yAxis):
 	inputLayerNumTokens = getInputLayerNumTokens(numberOfPatches)
 	#see createLinearPatches specification; patches[imageIndex, i*numberOfPatches + j]
 	posEmbeddingsAbsolute = pt.zeros(inputLayerNumTokens, 2)  #pos embeddings absolute include x/y dim only
-	posEmbeddingsAbsolute[:, yAxis] = pt.unsqueeze(pt.arange(1, numberOfPatches+1),1).repeat(1, numberOfPatches).flatten()
 	posEmbeddingsAbsolute[:, xAxis] = pt.arange(1, numberOfPatches+1).repeat(numberOfPatches)
-
+	posEmbeddingsAbsolute[:, yAxis] = pt.unsqueeze(pt.arange(1, numberOfPatches+1),1).repeat(1, numberOfPatches).flatten()
 	return posEmbeddingsAbsolute
 
 '''
@@ -96,8 +100,15 @@ if(useATORCPPserial):
 		return patches
 '''
 
-def createLinearPatches(images, numberOfPatches, flattenChannels=True):
-	batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
+def createLinearPatches(images, numberOfPatches, isATORmodel, flattenChannels=True):
+	'''
+	#not required as imageHeight and imageWidth must be identical
+	if(isATORmodel):
+		batchSize, numberOfChannels, imageWidth, imageHeight = images.shape
+	else:
+		batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
+	'''
+	batchSize, numberOfChannels, imageWidth, imageHeight = images.shape
 	inputShape = (numberOfChannels, imageHeight, imageWidth)
 
 	if(imageHeight != imageWidth):
@@ -111,9 +122,17 @@ def createLinearPatches(images, numberOfPatches, flattenChannels=True):
 	patchLength = getPatchLength(inputShape, numberOfPatches)
 
 	for imageIndex, image in enumerate(images):
-		for i in range(numberOfPatches):	#y axis
-			for j in range(numberOfPatches):	#x axis
+		for i in range(numberOfPatches):	#!isATORmodel: yAxis, isATORmodel: xAxis
+			for j in range(numberOfPatches):	#!isATORmodel: yAxis, isATORmodel: xAxis
 				patch = image[:, i*patchLength:(i+1)*patchLength, j*patchLength:(j+1)*patchLength]
+				'''
+				#not required as customViT should be agnostic to subpatch dimensions once transformed via ATOR
+				if(not isATORmodel):
+					if(xAxisGeometricHashing == 0):
+						patch = patch.permute(0, 2, 1)	#numberOfChannels, imageWidth, imageHeight
+					elif(xAxisGeometricHashing == 1):
+						pass #patch = patch.permute(0, 1, 2)	#numberOfChannels, imageHeight, imageWidth
+				'''
 				if(flattenChannels):
 					patch = patch.flatten()
 					patches[imageIndex, i*numberOfPatches + j] = patch
@@ -130,8 +149,8 @@ def uncreateLinearPatches(sequences, numberOfPatches, numberOfGeoDimensions):
 	images = pt.zeros(batchSize, numberOfPatches, numberOfPatches, numberOfGeoDimensions)
 
 	for imageIndex, sequence in enumerate(sequences):
-		for i in range(numberOfPatches):
-			for j in range(numberOfPatches):
+		for i in range(numberOfPatches):	#y axis	[yAxisViT]
+			for j in range(numberOfPatches):	#x axis	[xAxisViT]
 				for k in range(numberOfGeometricDimensions):
 					images[imageIndex, i, j, k] = sequence[i*numberOfPatches + j, k]
 

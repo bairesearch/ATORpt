@@ -34,7 +34,8 @@ import ATORpt_RFgenerateDraw
 def detectEllipsesGaussianBlur(inputimagefilename):
 	
 	inputImage = cv2.imread(inputimagefilename)
-		
+	inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2RGB)
+	
 	inputImageHeight, inputImageWidth, inputImageChannels = inputImage.shape
 	inputImageSize = (inputImageWidth, inputImageHeight)
 	print("inputImageHeight = ", inputImageHeight, "inputImageWidth = ", inputImageWidth, ", inputImageChannels = ", inputImageChannels)
@@ -88,6 +89,7 @@ def detectEllipsesGaussianBlur(inputimagefilename):
 def detectEllipsesTrialResize(inputimagefilename):
 	
 	inputImage = cv2.imread(inputimagefilename)
+	inputImage = cv2.cvtColor(inputImage, cv2.COLOR_BGR2RGB)
 		
 	inputImageHeight, inputImageWidth, inputImageChannels = inputImage.shape
 	inputImageSize = (inputImageWidth, inputImageHeight)

@@ -13,23 +13,29 @@ Classification of normalised snapshots (transformed patches) via ViT
 ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
 - supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
+	- supports classification of 2D image snapshots recreated from transformed mesh coordinates
+		- perform independent, parallelised target prediction of object triangle data
 - !useEndToEndNeuralModel (useStandardVIT)
-	useATORPTparallel:
+	- useATORPTparallel:
 		- uses third party feature detectors (point feature and segmenter: segment-anything)
 		- uses parallel pytorch ATOR implementation
-	useATORCPPserial:
+		- support points (corner/centroid) features of the ATOR specification using a third party library
+	- useATORCPPserial:
 		- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
 		- requires all ATOR C++ prerequisites 
 - useEndToEndNeuralModel (!useStandardVIT):
-	- ATORpt contains various modules for an end-to-end neural model of ATOR
-	- ATORpt is designed to perform transformations of all image pixel coordinates in parallel
+	- contains various modules for an end-to-end neural model of ATOR
+	- designed to perform transformations of all image pixel coordinates in parallel
 	- architecture layout provided (implementation incomplete)
-	- supports classification of 2D image snapshots recreated from transformed mesh coordinates - standard
-		- perform independent, parallelised target prediction of object triangle data
 	- supports feature detection via a CNN
 	- currently supports 2DOD (2D/image input object data)
 	- currently uses MNIST dataset to test affine(/euclidean/projective) invariance
 	- also supports useMultKeys - modify transformer to support geometric hashing operations - experimental
+
+See ATOR specification: https://www.wipo.int/patentscope/search/en/WO2011088497
+
+Future:
+Requires upgrading to support 3DOD (3D input object data)
 
 #### Description (ATOR RF):
 
@@ -44,9 +50,6 @@ There are a number of advantages of using ellipsoid features over point features
 * features can still be detected where there are no point features available
 Ellipse features/components are detected based on simulated artificial receptive fields; RF (on/off, off/on).
 
-ATORpt will also support point (corner/centroid) features of the ATOR specification using a third party library; 
-https://www.wipo.int/patentscope/search/en/WO2011088497
-
 Future:
 Requires upgrading to support 3DOD receptive field detection (ellipses/ellipsoids/features in 3D space)
 
@@ -56,17 +59,32 @@ MIT License
 
 ### Installation
 ```
+if(snapshotRenderer == "pytorch3D"):
+conda create -n pytorch3d python=3.9
+conda activate pytorch3d
+conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
+conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+conda install pytorch3d -c pytorch3d
+pip install tqdm
+pip install transformers
+pip install click
+pip install opencv-python opencv-contrib-python
+pip install kornia
+pip install matplotlib
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
+
+elif(snapshotRenderer != "pytorch3D"):
 conda create --name pytorchsenv2 python=3.8
 source activate pytorchsenv2
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip3 install tqdm
-pip3 install transformers
-pip3 install click
-pip3 install opencv-python opencv-contrib-python
-pip3 install kornia
-pip3 install matplotlib
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 install all ATOR C++ prerequisites	(required for useATORCPPserial only)
-pip3 install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
+pip install tqdm
+pip install transformers
+pip install click
+pip install opencv-python opencv-contrib-python
+pip install kornia
+pip install matplotlib
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
 	pip3 install opencv-python pycocotools matplotlib onnxruntime onnx
 	download default checkpoint (ViT_h SAM model) https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 ```

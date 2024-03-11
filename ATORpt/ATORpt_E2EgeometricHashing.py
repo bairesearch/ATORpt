@@ -84,7 +84,7 @@ class GeometricHashingClass(nn.Module):
 			featureMapN = featureMap[batchIndex]
 
 			if(debugGeometricHashingParallel):
-				ATORpt_operations.printImage(imageN)
+				ATORpt_E2Eoperations.printImage(imageN)
 				#ATORpt_E2Eoperations.printFeatureMap(posEmbeddings, featureMapN)
 
 			posEmbeddingsNormalised = ATORpt_E2Eoperations.normaliseInputs0to1(posEmbeddings, dim=0)	#normalise across sequenceLength dimension
@@ -99,8 +99,10 @@ class GeometricHashingClass(nn.Module):
 			if(useGeometricHashingAMANN):
 				posEmbeddingsAbsoluteGeoNormalisedN = self.performGeometricHashingAMANN(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings)
 			else:
-				print("geometricHashingKeypointsPosEmbeddings.shape = ", geometricHashingKeypointsPosEmbeddings.shape)
-				print("geometricHashingPixelPosEmbeddings.shape = ", geometricHashingPixelPosEmbeddings.shape)
+				print("TODO: need to ensure that geometricHashingKeypointsPosEmbeddings and geometricHashingPixelPosEmbeddings are batched")
+				print("\tgeometricHashingKeypointsPosEmbeddings.shape = ", geometricHashingKeypointsPosEmbeddings.shape)
+				print("\tgeometricHashingPixelPosEmbeddings.shape = ", geometricHashingPixelPosEmbeddings.shape)
+				print("TODO: need to ensure that geometricHashingKeypointsPosEmbeddings and geometricHashingPixelPosEmbeddings are in format xAxisGeometricHashing,yAxisGeometricHashing")
 				posEmbeddingsAbsoluteGeoNormalisedN = ATORpt_PTgeometricHashing.performGeometricHashingParallel(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings, pixelValuesN)
 
 			posEmbeddingsGeometricNormalisedList.append(posEmbeddingsAbsoluteGeoNormalisedN)

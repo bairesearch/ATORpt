@@ -40,9 +40,9 @@ class ATORmodelClass(nn.Module):
 				
 		self.inputShape = inputShape
 		numberOfChannels, imageHeight, imageWidth = inputShape
-		self.numberOfPatches = numberOfPatches
+		self.numberOfPatches = numberOfPatches	#image width/height (ATOR uses a unique "patch" for each pixel)
 
-		self.patchSize = ATORpt_E2Eoperations.getPatchSize(inputShape, numberOfPatches)
+		self.patchSize = ATORpt_E2Eoperations.getPatchSize(inputShape, numberOfPatches)	#1, 1
 
 		self.numberOfInputDimensions = ATORpt_E2Eoperations.getInputDim(inputShape, self.patchSize)
 
@@ -62,10 +62,11 @@ class ATORmodelClass(nn.Module):
 
 	def forward(self, images):
 		
-		batchSize, numberOfChannels, imageHeight, imageWidth = images.shape
+		images = images.permute(0, 1, 3, 2)	#place image into C,W,H format (as ATOR model uses xAxisATORmodel=0,yAxisATORmodel=1 convention)
+		batchSize, numberOfChannels, imageWidth, imageHeight = images.shape
 					
-		tokens = ATORpt_E2Eoperations.createLinearPatches(images, self.numberOfPatches)
-		posEmbeddings = ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute(self.numberOfPatches)
+		tokens = ATORpt_E2Eoperations.createLinearPatches(images, self.numberOfPatches, True)
+		posEmbeddings = ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute(self.numberOfPatches, xAxisATORmodel, yAxisATORmodel)
 		
 		#ATORpt_E2Eoperations.printPixelMap(posEmbeddings, tokens)
 		

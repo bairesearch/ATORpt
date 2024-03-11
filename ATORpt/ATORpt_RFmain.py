@@ -25,10 +25,7 @@ There are a number of advantages of using ellipsoid features over point features
 * features can still be detected where there are no point features available
 Ellipse features/components are detected based on simulated artificial receptive fields; RF (on/off, off/on).
 
-ATORpt will also support point (corner/centroid) features of the ATOR specification using a third party library; 
-https://www.wipo.int/patentscope/search/en/WO2011088497
-
-# Future:
+Future:
 Requires upgrading to support 3DOD receptive field detection (ellipses/ellipsoids/features in 3D space)
 
 """
