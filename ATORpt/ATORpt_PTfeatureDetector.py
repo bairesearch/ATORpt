@@ -33,8 +33,8 @@ def featureDetection(image, zoomIndex):
 		#imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVShiTomasi(image)
 	if(useFeatureDetectionCentroids):
 		imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCentroidFBSegmentAnything(image)
-	imageFeatureCoordinates = pt.tensor(imageFeatureCoordinatesList)
-	print("imageFeatureCoordinates.shape = ", imageFeatureCoordinates.shape)
+	imageFeatureCoordinates = pt.tensor(imageFeatureCoordinatesList, dtype=pt.float32)	#double->float conversion required for featureDetectionCentroidFBSegmentAnything:calculateMaskCentroid
+	#print("imageFeatureCoordinates.shape = ", imageFeatureCoordinates.shape)
 	imageFeatureCoordinates = imageFeatureCoordinates*zoom	#ensure feature coordinates are defined with respect to original image coordinates
 	return imageFeatureCoordinates
 
@@ -73,7 +73,7 @@ def extractFeatureCoordsFromFeatureMap(dst, image):
 		
 	threshold = 0.02 * dst.max()
 	coords = np.argwhere(dst > threshold)
-	cornerFeatureList = [(coord[0], coord[1]) for coord in coords]	#y, x
+	cornerFeatureList = [(coord[1], coord[0]) for coord in coords]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
 
 	#print("cornerFeatureList = ", cornerFeatureList)
 	print("len cornerFeatureList = ", len(cornerFeatureList))
@@ -117,5 +117,5 @@ def calculateMaskCentroid(mask):
 		centroid_x = m10 / m00
 		centroid_y = m01 / m00
 
-	centroid = (centroid_y, centroid_x)	#y, x
+	centroid = (centroid_x, centroid_y)	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
 	return centroid

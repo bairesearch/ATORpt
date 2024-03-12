@@ -19,13 +19,16 @@ ATORpt global definitions
 
 import torch as pt
 import torch.nn as nn
+import math
 
 pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
+debugSnapshotRender = False	#draw original image (not snapshot) to debug the renderer
 debugGeometricHashingParallel = False	#print geometrically transformed tensors
-debugGeometricHashingParallel2 = False
+if(debugGeometricHashingParallel):
+	debugGeometricHashingParallelLargeMarker = False
 
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -121,6 +124,7 @@ if(useEndToEndNeuralModel):
 				else:
 					useGeometricHashingHardcoded = True
 					if(useGeometricHashingHardcoded):
+						debugPolyIndex = 0
 						useGeometricHashingHardcodedParallelisedDeformation = False	#apply multiple rotation matrices in parallel
 			useGeometricHashingKeypointNormalisation = True
 		numberOfGeometricDimensions = 2	#2D object data (2DOD)
@@ -149,9 +153,7 @@ else:
 	normaliseSnapshotLength = 30
 	numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features
-	VITmaxNumberATORpatches = 100	#max number of normalised patches per image (spare patches are filled with dummy var)	#must support sqrt
-	VITmaxNumberATORpolysPerZoom = VITmaxNumberATORpatches//numberOfZoomLevels	#300	#CHECKTHIS
-	ATORnumberOfPatches = VITmaxNumberATORpatches
+	VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)
 	VITnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfChannels = 3
 	VITpatchSizeX = normaliseSnapshotLength
@@ -165,8 +167,10 @@ else:
 	VITnumberOfClasses = databaseNumberOfClasses
 	inputfolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
 	numberOfGeometricDimensions = 2	#2D object data (2DOD)
-	if(useATORPTparallel):
-		ATORmaxNumberOfPolys = VITmaxNumberATORpatches
+	if(useATORPTparallel):		
+		ATORmaxNumImages = 10	#max 10 on 12GB GPU
+		ATORmaxNumberATORpatchesAllImages = VITmaxNumberATORpatches*ATORmaxNumImages	#max 9000 on 12GB GPU
+		ATORmaxNumberOfPolys = VITmaxNumberATORpatches	#max number of normalised patches per image
 		keypointPadValue = -1
 		meshPadValue = -1
 		ATORpatchPadding = 1	#1, 2
@@ -175,18 +179,34 @@ else:
 		useGeometricHashingHardcodedParallelisedDeformation = True	#apply multiple rotation matrices in parallel
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
-		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
+		useFeatureDetectionCentroids = True	#default: True #disable for debug (speed)
 		keypointDetectionMinXYdiff = 5	#minimum difference along an X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
 		ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints = 3	#must be >= 2
-		snapshotRenderer = "pytorch3D" #torchgeometry #pytorch3D - installation CUDA incompatibilities (cub?; "ImportError: libtorch_cuda_cu.so: cannot open shared object file: No such file or directory")
+		snapshotRenderer = "pytorch3D"
+		normalisedObjectTriangleEdgeLength = 1
+		normalisedObjectTriangleHeight = math.sqrt(3)/2
+		renderViewportSize = (normalisedObjectTriangleEdgeLength, normalisedObjectTriangleEdgeLength*normalisedObjectTriangleHeight)
+			#normaliseSnapshotLength*ATORpatchPadding
+		renderImageSize = normaliseSnapshotLength
 		if(snapshotRenderer == "pytorch3D"):
 			snapshotRenderTris = True	#else quads	#snapshots must be rendered using artificial Tri polygons (generated from pixel quads)
-			snapshotRenderZdimVal = 10.0	#1.0	#50.0
 			snapshotRenderExpectColorsDefinedForVerticesNotFaces = True
 			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
 				snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal = 0
-			snapshotRenderDebug = True	#draw original image (not snapshot) to debug the renderer
+			snapshotRenderCameraRotationZaxis = 180 #orient camera to face up wrt mesh
+			snapshotRenderCameraRotationYaxis = 0	#orient camera to face towards the mesh
+			snapshotRenderCameraRotationXaxis = 0
+			if(snapshotRenderCameraRotationYaxis == 180):
+				snapshotRenderCameraZnear = 0.0
+				snapshotRenderCameraZfar = -100.0
+				snapshotRenderZdimVal = -10.0
+			else:
+				snapshotRenderCameraZnear = 0.1
+				snapshotRenderCameraZfar = 100.0
+				snapshotRenderZdimVal = 10.0
+		debugPolyIndex = 0
 	elif(useATORCPPserial):
+		VITmaxNumberATORpolysPerZoom = VITmaxNumberATORpatches//numberOfZoomLevels	#300	#CHECKTHIS
 		trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 
 		batchSize = 1	#process images serially
 		useParallelisedGeometricHashing = False
@@ -220,6 +240,9 @@ xAxisFeatureMap = xAxisATORmodel	#ATOR feature map assumes x,y coordinates
 yAxisFeatureMap = yAxisATORmodel
 xAxisViT = 1	#ViT assumes y,x patch coordinates (standard opencv/TF image coordinates convention also)
 xAxisViT = 0
+xAxisImages = 1	#opencv/torchvision(TF/PIL)/etc assume y,x coordinates
+yAxisImages = 0
+#matplotlib imshow assumes y,x,c; opencv->tensor assumes c,y,x, TFPIL->tensor assumes c,y,x)
 	
 def printe(str):
 	print(str)

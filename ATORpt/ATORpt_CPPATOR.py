@@ -86,7 +86,7 @@ def loadImage(imagePath):
 	image = Image.open(imagePath)
 	#image = image.convert("RGB")
 	transform = transforms.ToTensor()
-	imageTensor = transform(image).to(device)
+	imageTensor = transform(image).to(device)	#C, H, W
 	return imageTensor
 
 def getALOIVIEWImagePath(imageIndex, viewIndex):

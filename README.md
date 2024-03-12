@@ -20,6 +20,10 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 		- uses third party feature detectors (point feature and segmenter: segment-anything)
 		- uses parallel pytorch ATOR implementation
 		- support points (corner/centroid) features of the ATOR specification using a third party library
+		- supports simultaneous transformation of approx 9000 patches (ATOR 2D0D tri polys) on 12GB GPU
+			- approx 10 images with 900 2D0D tri polys per image, generated from approx 500 features per image
+			- approx 100x faster than useATORCPPserial 
+		- requires pytorch3d library
 	- useATORCPPserial:
 		- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
 		- requires all ATOR C++ prerequisites 
@@ -59,7 +63,6 @@ MIT License
 
 ### Installation
 ```
-if(snapshotRenderer == "pytorch3D"):
 conda create -n pytorch3d python=3.9
 conda activate pytorch3d
 conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
@@ -72,28 +75,13 @@ pip install opencv-python opencv-contrib-python
 pip install kornia
 pip install matplotlib
 pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
-
-elif(snapshotRenderer != "pytorch3D"):
-conda create --name pytorchsenv2 python=3.8
-source activate pytorchsenv2
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-install all ATOR C++ prerequisites	(required for useATORCPPserial only)
-pip install tqdm
-pip install transformers
-pip install click
-pip install opencv-python opencv-contrib-python
-pip install kornia
-pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
-	pip3 install opencv-python pycocotools matplotlib onnxruntime onnx
-	download default checkpoint (ViT_h SAM model) https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
-```
+	```
 
 ### Execution
 ```
-source activate pytorchsenv2
+source activate pytorch3d
 python3 ATORpt_main.py
 
-source activate pytorchsenv2
+source activate pytorch3d
 python3 ATORpt_RFmain.py
 ```

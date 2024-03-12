@@ -27,7 +27,6 @@ import torch.nn.functional as F
 from ATORpt_globalDefs import *
 
 def printImage(image)
-	image = image.permute(0, 2, 1)	#place image back into C,H,W format
 	ATORpt_operations.printImage(image)
 
 def getInputLayerNumTokens(numberOfPatches):

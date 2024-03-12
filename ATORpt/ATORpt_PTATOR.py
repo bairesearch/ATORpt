@@ -28,11 +28,14 @@ import ATORpt_operations
 import ATORpt_PTrenderer
 
 def generateATORpatches(imagePaths, train):
-
-	if(snapshotRenderDebug):
-		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.getImageMeshCoordinates(imagePaths[0])
-		renderImageSize = 500
-		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderImageSize)	#transformedSnapshotPixelCoordinates
+	#image polys (ie polys across all images) are merged into single dim for geometric hashing and rendering
+	
+	if(debugSnapshotRender):
+		imagePath = imagePaths[0]
+		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.getImageMeshCoordinates(imagePath)
+		renderViewportSizeImage = (500, 500)
+		renderImageSizeImage = 500
+		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSizeImage, renderImageSizeImage, centreSnapshots=True)	#transformedSnapshotPixelCoordinates
 	
 	keypointCoordinatesList = []
 	snapshotPixelCoordinatesList = []
@@ -42,10 +45,10 @@ def generateATORpatches(imagePaths, train):
 	snapshotMeshPolyCoordinatesList = []
 	
 	for imageIndex, imagePath in enumerate(imagePaths):
-		print("imageIndex = ", imageIndex)
+		#print("imageIndex = ", imageIndex)
 		imageKeypointCoordinatesZList = []
 		for zoomIndex in range(numberOfZoomLevels):
-			print("zoomIndex = ", zoomIndex)
+			#print("zoomIndex = ", zoomIndex)
 			image = getImageCV(imagePath, zoomIndex)	#shape = [Height, Width, Channels] where Channels is [Blue, Green, Red] (opencv standard)
 			imageFeatureCoordinatesZ = ATORpt_PTfeatureDetector.featureDetection(image, zoomIndex)
 			imageKeypointCoordinatesZ = ATORpt_PTpolyKeypointGenerator.performKeypointDetection(imageFeatureCoordinatesZ)
@@ -69,22 +72,29 @@ def generateATORpatches(imagePaths, train):
 	snapshotMeshFaces = pt.cat(snapshotMeshFacesList, dim=0)
 	snapshotMeshPolyCoordinates = pt.cat(snapshotMeshPolyCoordinatesList, dim=0)
 	
+	'''
+	print("keypointCoordinates.shape = ", keypointCoordinates.shape)
 	print("snapshotPixelCoordinates.shape = ", snapshotPixelCoordinates.shape)
 	print("snapshotMeshCoordinates.shape = ", snapshotMeshCoordinates.shape)
 	print("snapshotMeshValues.shape = ", snapshotMeshValues.shape)
 	print("snapshotMeshFaces.shape = ", snapshotMeshFaces.shape)
 	print("snapshotMeshPolyCoordinates.shape = ", snapshotMeshPolyCoordinates.shape)
-
-	if(debugGeometricHashingParallel):
-		pixelCoordinates = snapshotPixelCoordinates
-	else:
-		if(snapshotRenderer == "torchgeometry"):
-			pixelCoordinates = snapshotMeshPolyCoordinates
-		else:
-			pixelCoordinates = snapshotMeshCoordinates
-	transformedSnapshotPixelCoordinates = ATORpt_PTgeometricHashing.performGeometricHashingParallel(keypointCoordinates, pixelCoordinates, pixelValues=snapshotMeshValues)	
-	renderImageSize = normaliseSnapshotLength*ATORpatchPadding
-	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderImageSize)	#transformedSnapshotPixelCoordinates
+	'''
+	
+	if(snapshotRenderer == "torchgeometry"):
+		meshCoordinates = snapshotMeshPolyCoordinates
+	elif(snapshotRenderer == "pytorch3D"):
+		meshCoordinates = snapshotMeshCoordinates
+	
+	transformedMeshCoordinates = ATORpt_PTgeometricHashing.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
+	print("geoHashing complete")
+	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=True)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False
+	print("transformedPatches.shape = ", transformedPatches.shape)
+	numPatchesPerImage = transformedPatches.shape[0]//batchSize
+	transformedPatches = pt.reshape(transformedPatches, (batchSize, numPatchesPerImage, transformedPatches.shape[1], transformedPatches.shape[2], transformedPatches.shape[3]))	#shape: batchSize*ATORmaxNumberOfPolys, H, W, C
+	transformedPatches = pt.permute(transformedPatches, (0, 1, 4, 2, 3))	#shape: batchSize, ATORmaxNumberOfPolys, C, H, W
+	print("transformedPatches.shape = ", transformedPatches.shape)
+	
 	return transformedPatches
 
 def getImageCV(imagePath, zoomIndex):
