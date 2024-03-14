@@ -20,9 +20,9 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 		- uses third party feature detectors (point feature and segmenter: segment-anything)
 		- uses parallel pytorch ATOR implementation
 		- support points (corner/centroid) features of the ATOR specification using a third party library
-		- supports simultaneous transformation of approx 9000 patches (ATOR 2D0D tri polys) on 12GB GPU
-			- approx 10 images with 900 2D0D tri polys per image, generated from approx 500 features per image
-			- approx 100x faster than useATORCPPserial 
+		- supports simultaneous transformation of approx 9000 30x30px patches (ATOR 2D0D tri polys) on 12GB GPU
+			- approx 10 images with 900 30x30px 2D0D tri polys per image, generated from approx 500 features per 500x500px image
+			- approx 100x faster than useATORCPPserial
 		- requires pytorch3d library
 	- useATORCPPserial:
 		- uses ATOR C++ executable to generate transformed patches (normalised snapshots)

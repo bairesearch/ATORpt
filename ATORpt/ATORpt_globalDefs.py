@@ -25,11 +25,19 @@ pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
-debugSnapshotRender = False	#draw original image (not snapshot) to debug the renderer
-debugGeometricHashingParallel = False	#print geometrically transformed tensors
+#debug vars:
+debugProcessSingleImage = True
+debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
+debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the renderer
+debugSnapshotRender = False	#draw intermediary transformed snapshots to debug the renderer
+debugGeometricHashingParallel = False	#print intermediary transformed keypoints to debug the geometric hashing
 if(debugGeometricHashingParallel):
-	debugGeometricHashingParallelLargeMarker = False
+	debugGeometricHashingParallelLargeMarker = True
+debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of untransformed snapshots) to debug the image coordinates generation for geometric hashing/rendering
+debugFeatureDetection = False	#print features on original images
+debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
 
+#ATOR implementation select:
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
 	useATORPTparallel = True
@@ -46,7 +54,6 @@ if(databaseName == "ALOI-VIEW"):
 	databaseRoot = "/media/rich/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
 	numberOfOutputDimensions = 1000	
-	debugProcessSingleImage = True
 	if(debugProcessSingleImage):
 		debugProcessSingleImageIndexTrain = 868	#Object.nr:.868 - nutrilon nora box	#Object.nr:.525 - Paper box	#common ATOR C implementation samples for high point/corner feature detection
 		debugProcessSingleViewIndexTrain = 0
@@ -124,7 +131,6 @@ if(useEndToEndNeuralModel):
 				else:
 					useGeometricHashingHardcoded = True
 					if(useGeometricHashingHardcoded):
-						debugPolyIndex = 0
 						useGeometricHashingHardcodedParallelisedDeformation = False	#apply multiple rotation matrices in parallel
 			useGeometricHashingKeypointNormalisation = True
 		numberOfGeometricDimensions = 2	#2D object data (2DOD)
@@ -153,7 +159,10 @@ else:
 	normaliseSnapshotLength = 30
 	numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features
-	VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)
+	if(debugGeometricHashingParallel or debugSnapshotRender):
+		VITmaxNumberATORpatches = 30
+	else: 
+		VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
 	VITnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfChannels = 3
 	VITpatchSizeX = normaliseSnapshotLength
@@ -173,27 +182,39 @@ else:
 		ATORmaxNumberOfPolys = VITmaxNumberATORpatches	#max number of normalised patches per image
 		keypointPadValue = -1
 		meshPadValue = -1
-		ATORpatchPadding = 1	#1, 2
+		ATORpatchPadding = 2	#1, 2
 		ATORpatchUpscaling = 1	#1, 2
-		ATORpatchSize = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding)	#use larger patch size to preserve information during resampling
+		ATORpatchSizeIntermediary = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding)	#use larger patch size to preserve information during resampling
 		useGeometricHashingHardcodedParallelisedDeformation = True	#apply multiple rotation matrices in parallel
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
-		useFeatureDetectionCentroids = True	#default: True #disable for debug (speed)
+		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
 		keypointDetectionMinXYdiff = 5	#minimum difference along an X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
 		ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints = 3	#must be >= 2
 		snapshotRenderer = "pytorch3D"
-		normalisedObjectTriangleEdgeLength = 1
-		normalisedObjectTriangleHeight = math.sqrt(3)/2
-		renderViewportSize = (normalisedObjectTriangleEdgeLength, normalisedObjectTriangleEdgeLength*normalisedObjectTriangleHeight)
+		normalisedObjectTriangleBaseLength = 1
+		normalisedObjectTriangleHeight = 1	#1: use equal base length and height for square snapshot generation, math.sqrt(3)/2: use equilateral triangle
+		if(debugSnapshotRender):
+			#renderViewportSize = (normalisedObjectTriangleBaseLength*2, normalisedObjectTriangleHeight*2)	#increase size of snapshot area to see if image coordinates align with object triangle
+			renderViewportSize = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
+		else:
+			renderViewportSize = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
 			#normaliseSnapshotLength*ATORpatchPadding
 		renderImageSize = normaliseSnapshotLength
+		if(ATORpatchPadding == 1):
+			applyObjectTriangleMask = True	#mask out transformed image coordinates outside of object triangle
+		else:
+			applyObjectTriangleMask = False
 		if(snapshotRenderer == "pytorch3D"):
 			snapshotRenderTris = True	#else quads	#snapshots must be rendered using artificial Tri polygons (generated from pixel quads)
 			snapshotRenderExpectColorsDefinedForVerticesNotFaces = True
 			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
 				snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal = 0
-			snapshotRenderCameraRotationZaxis = 180 #orient camera to face up wrt mesh
+			renderInvertedYaxisToDisplayOriginalImagesUpright = False	 #orient camera to face up wrt original images (required as opencv/TF image y coordinates are defined from top to bottom)
+			if(renderInvertedYaxisToDisplayOriginalImagesUpright):
+				snapshotRenderCameraRotationZaxis = 180
+			else:
+				snapshotRenderCameraRotationZaxis = 0
 			snapshotRenderCameraRotationYaxis = 0	#orient camera to face towards the mesh
 			snapshotRenderCameraRotationXaxis = 0
 			if(snapshotRenderCameraRotationYaxis == 180):
@@ -204,7 +225,6 @@ else:
 				snapshotRenderCameraZnear = 0.1
 				snapshotRenderCameraZfar = 100.0
 				snapshotRenderZdimVal = 10.0
-		debugPolyIndex = 0
 	elif(useATORCPPserial):
 		VITmaxNumberATORpolysPerZoom = VITmaxNumberATORpatches//numberOfZoomLevels	#300	#CHECKTHIS
 		trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 

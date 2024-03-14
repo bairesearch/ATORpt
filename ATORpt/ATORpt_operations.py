@@ -62,6 +62,8 @@ def printPixelMap(posEmbeddings, tokens):
 
 def printImageCoordinates(x, y, values, imageSize=700):
 
+	figsize=(10, 10) # Width, Height in inches
+	
 	colorGraph = False
 	if(len(values.shape) > 1):
 		colorGraph = True
@@ -79,7 +81,9 @@ def printImageCoordinates(x, y, values, imageSize=700):
 		markerSize = 1
 	else:
 		markerSize = 0.01
-	plt.subplot(121)
+	#plt.subplot(121)
+	
+	plt.figure(figsize=figsize)
 
 	if(colorGraph):
 		plt.scatter(x=plotX, y=plotY, c=plotZ, s=markerSize)
@@ -90,38 +94,41 @@ def printImageCoordinates(x, y, values, imageSize=700):
 	plt.xlim(-imageSize, imageSize)
 	plt.ylim(-imageSize, imageSize)
 	
+	fig = plt.gcf()
+	fig.set_size_inches(figsize)  
+
 	plt.gca().set_aspect('equal', adjustable='box')
 
 	plt.show()	
 	
 
-def printCoordinates(keypointCoordinates, meshCoordinates, meshValues, meshFaces):
-	printKeypoints(keypointCoordinates)
-	printPixelCoordinates(meshCoordinates, meshValues, meshFaces)
+def printCoordinates(keypointCoordinates, meshCoordinates, meshValues, meshFaces, step=None, centreSnapshots=True):
+	printKeypoints(keypointCoordinates, step)
+	printPixelCoordinates(meshCoordinates, meshValues, meshFaces, step=step, centreSnapshots=centreSnapshots)
 	
-def printKeypoints(keypointCoordinates):
-	if(debugGeometricHashingParallel):
-		print("printKeypoints")
-		keypointCoordinatesCombined = pt.reshape(keypointCoordinates, (keypointCoordinates.shape[0]*keypointCoordinates.shape[1], keypointCoordinates.shape[2]))	#combine keyPointA/keyPointB/keyPointC
-		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
-		#print("keypointCoordinatesCombined.shape = ", keypointCoordinatesCombined.shape)
-		#print("keypointValuesCombined.shape = ", keypointValuesCombined.shape)
-		printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValuesCombined)
+def printKeypoints(keypointCoordinates, step=None):
+	for index in range(keypointCoordinates.shape[0]):
+		printKeypointsIndex(keypointCoordinates, index, step=step)
 
-def printPixelCoordinates(meshCoordinates, meshValues, meshFaces):
-	'''
-	if(debugGeometricHashingParallel):			
-		print("printPixelCoordinates:")
-		#print("meshCoordinates.shape = ", meshCoordinates.shape)
-		#print("meshValues.shape = ", meshValues.shape)
-		printImageCoordinates(meshCoordinates[:, :, xAxisGeometricHashing], meshCoordinates[:, :, yAxisGeometricHashing], meshValues)
-	'''
+def printPixelCoordinates(meshCoordinates, meshValues, meshFaces, step=None, centreSnapshots=True):
 	if(debugSnapshotRender):
-		print("printPixelCoordinates:")
-		renderViewportSizeDebug = renderViewportSize
-		renderImageSizeDebug = renderViewportSize
-		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=True)
-		
+		if(step is None):
+			print("printPixelCoordinates:")
+			renderViewportSizeDebug = renderViewportSize
+			renderImageSizeDebug = renderImageSize
+		else:
+			print("printPixelCoordinates: step=" + str(step))
+			if(step < 1):	#before final scale transform
+				renderViewportSizeDebug = (700, 700)	#max image size
+				renderImageSizeDebug = 1000	#256
+			elif(step < 5):	#before final scale transform
+				renderViewportSizeDebug = ATORpatchSizeIntermediary
+				renderImageSizeDebug = 1000	#256
+			else:
+				renderViewportSizeDebug = renderViewportSize	#*2 for debug checking only
+				renderImageSizeDebug = renderImageSize	#*2 for debug checking only
+		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=centreSnapshots)
+
 def printCoordinatesIndex(keypointCoordinates, meshCoordinates, meshValues, meshFaces, index, step=None):
 	printKeypointsIndex(keypointCoordinates, index, step)
 	printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, step)
@@ -129,36 +136,30 @@ def printCoordinatesIndex(keypointCoordinates, meshCoordinates, meshValues, mesh
 def printKeypointsIndex(keypointCoordinates, index, step=None):
 	if(debugGeometricHashingParallel):
 		if(step < 1):	#before final scale transform
-			debugPlotImageSize = 700
+			debugPlotImageSize = 700	#max image size
 		elif(step < 4):	#before final scale transform
-			debugPlotImageSize = 50
+			debugPlotImageSize = ATORpatchSizeIntermediary[xAxisGeometricHashing]
 		else:
-			debugPlotImageSize = renderViewportSize[0]*2
+			debugPlotImageSize = renderViewportSize[xAxisGeometricHashing]*2	#*2 for debug checking only
 		print("printKeypointsIndex: step=" + str(step))
 		print("keypointCoordinates[index] = ", keypointCoordinates[index])
 		keypointCoordinatesCombined = keypointCoordinates[index, :, :]
 		keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
 		printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValuesCombined[:], debugPlotImageSize)
 
-def printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, step=None):
-	'''
-	if(debugGeometricHashingParallel):			
-		print("printPixelCoordinatesIndex: step=" + str(step))
-		#print("meshCoordinates.shape = ", meshCoordinates.shape)
-		#print("meshValues.shape = ", meshValues.shape)
-		#meshValues = meshValues*0.5
-		printImageCoordinates(meshCoordinates[index, :, xAxisGeometricHashing], meshCoordinates[index, :, yAxisGeometricHashing], meshValues[index])	
-	'''
+def printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, step=None, centreSnapshots=True):
 	if(debugSnapshotRender):
 		if(step < 1):	#before final scale transform
-			renderViewportSizeDebug = (700, 700)
-		elif(step < 4):	#before final scale transform
-			renderViewportSizeDebug = (50, 50)
+			renderViewportSizeDebug = (700, 700)	#max image size
+			renderImageSizeDebug = 1000	#256
+		elif(step < 5):	#before final scale transform
+			renderViewportSizeDebug = ATORpatchSizeIntermediary
+			renderImageSizeDebug = 1000	#256
 		else:
-			renderViewportSizeDebug = renderViewportSize
-		renderImageSizeDebug = 256
+			renderViewportSizeDebug = renderViewportSize	#*2 for debug checking only
+			renderImageSizeDebug = renderImageSize	#*2 for debug checking only
 		print("printPixelCoordinatesIndex: step=" + str(step))
-		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=True, index=index)
+		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=centreSnapshots, index=index)
 
 
 

@@ -19,6 +19,7 @@ ATORpt PT ATOR -  parallel processing of ATOR (third party feature detection and
 
 import torch as pt
 import cv2
+import torchvision.transforms.functional as TF
 
 from ATORpt_globalDefs import *
 import ATORpt_PTfeatureDetector
@@ -29,13 +30,6 @@ import ATORpt_PTrenderer
 
 def generateATORpatches(imagePaths, train):
 	#image polys (ie polys across all images) are merged into single dim for geometric hashing and rendering
-	
-	if(debugSnapshotRender):
-		imagePath = imagePaths[0]
-		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.getImageMeshCoordinates(imagePath)
-		renderViewportSizeImage = (500, 500)
-		renderImageSizeImage = 500
-		transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSizeImage, renderImageSizeImage, centreSnapshots=True)	#transformedSnapshotPixelCoordinates
 	
 	keypointCoordinatesList = []
 	snapshotPixelCoordinatesList = []
@@ -58,6 +52,9 @@ def generateATORpatches(imagePaths, train):
 		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.getSnapshotMeshCoordinates(imageKeypointCoordinates, imagePath)
 		imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.padCoordinatesArrays(imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates)	#pad coordinates to ATORmaxNumberOfPolys
 
+		if(debugSnapshotRenderFullImage):
+			drawImageWithKeypoints(imagePath, imageKeypointCoordinates)
+	
 		keypointCoordinatesList.append(imageKeypointCoordinates)
 		snapshotPixelCoordinatesList.append(snapshotPixelCoordinates)
 		snapshotMeshCoordinatesList.append(snapshotMeshCoordinates)
@@ -81,14 +78,12 @@ def generateATORpatches(imagePaths, train):
 	print("snapshotMeshPolyCoordinates.shape = ", snapshotMeshPolyCoordinates.shape)
 	'''
 	
-	if(snapshotRenderer == "torchgeometry"):
-		meshCoordinates = snapshotMeshPolyCoordinates
-	elif(snapshotRenderer == "pytorch3D"):
+	if(snapshotRenderer == "pytorch3D"):
 		meshCoordinates = snapshotMeshCoordinates
 	
 	transformedMeshCoordinates = ATORpt_PTgeometricHashing.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
 	print("geoHashing complete")
-	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=True)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False
+	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=False)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False
 	print("transformedPatches.shape = ", transformedPatches.shape)
 	numPatchesPerImage = transformedPatches.shape[0]//batchSize
 	transformedPatches = pt.reshape(transformedPatches, (batchSize, numPatchesPerImage, transformedPatches.shape[1], transformedPatches.shape[2], transformedPatches.shape[3]))	#shape: batchSize*ATORmaxNumberOfPolys, H, W, C
@@ -97,6 +92,31 @@ def generateATORpatches(imagePaths, train):
 	
 	return transformedPatches
 
+def drawImageWithKeypoints(imagePath, keypointCoordinates):
+
+	image = cv2.imread(imagePath)
+	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+	image = TF.to_pil_image(image)
+	
+	for polyIndex in range(keypointCoordinates.shape[0]):
+		polyKeypointCoordinates = keypointCoordinates[polyIndex]
+		#mark keypoints on image
+		R = (255, 0, 0) #RGB format
+		G = (0, 255, 0) #RGB format
+		B = (0, 0, 255) #RGB format
+		M = (255, 0, 255) #RGB format
+		Y = (255, 255, 0) #RGB format
+		C = (0, 255, 255) #RGB format
+		image.putpixel((int(polyKeypointCoordinates[0, xAxisGeometricHashing]), int(polyKeypointCoordinates[0, yAxisGeometricHashing])), M)
+		image.putpixel((int(polyKeypointCoordinates[1, xAxisGeometricHashing]), int(polyKeypointCoordinates[1, yAxisGeometricHashing])), Y)
+		image.putpixel((int(polyKeypointCoordinates[2, xAxisGeometricHashing]), int(polyKeypointCoordinates[2, yAxisGeometricHashing])), C)
+		
+	snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTpolyKeypointGenerator.getImageMeshCoordinates(image)
+	renderViewportSizeImage = (300, 300)
+	renderImageSizeImage = 1000
+	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSizeImage, renderImageSizeImage, centreSnapshots=True)
+	
+	
 def getImageCV(imagePath, zoomIndex):
 	zoom = ATORpt_PTfeatureDetector.getZoomValue(zoomIndex)
 	image = cv2.imread(imagePath)

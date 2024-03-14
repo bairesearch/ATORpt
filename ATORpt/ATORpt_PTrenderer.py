@@ -62,16 +62,20 @@ def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderIma
 	R = euler_angles_to_matrix(pt.tensor([angle_z, angle_y, angle_x]), "ZYX")
 	R = R.unsqueeze(dim=0)
 	
-	min_x=-renderViewportSize[xAxisGeometricHashing]//2
-	max_x=renderViewportSize[xAxisGeometricHashing]//2
+	min_x=-renderViewportSize[xAxisGeometricHashing]/2
+	max_x=renderViewportSize[xAxisGeometricHashing]/2
 	if(centreSnapshots):
-		min_y=-renderViewportSize[yAxisGeometricHashing]//2
-		max_y=renderViewportSize[yAxisGeometricHashing]//2
+		min_y=-renderViewportSize[yAxisGeometricHashing]/2
+		max_y=renderViewportSize[yAxisGeometricHashing]/2
 		#or T = pt.tensor([[0., 0., 0.]])
 	else:
 		#according to ATOR 2D0D specification, object triangles (ie normalised snapshots) are centred wrt the y axis, and placed on (ie above) the x axis
-		min_y=0
-		max_y=renderViewportSize[yAxisGeometricHashing]
+		if(renderInvertedYaxisToDisplayOriginalImagesUpright):
+			min_y=-renderViewportSize[yAxisGeometricHashing]
+			max_y=0
+		else:
+			min_y=0
+			max_y=renderViewportSize[yAxisGeometricHashing]
 		#or T = pt.tensor([[0., -renderViewportSize[yAxisGeometricHashing]//2., 0.]])
 				
 	cameras = FoVOrthographicCameras(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y, znear=snapshotRenderCameraZnear, zfar=snapshotRenderCameraZfar, R=R, T=T, device=device)
@@ -88,12 +92,21 @@ def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderIma
 	#print("images[0] = ", images[0])
 	
 	images = images[..., :3]	#remove the alpha channel
-	
+
+	if(applyObjectTriangleMask):
+		images = maskImageCoordiantesOutsideObjectTriangle(images, renderImageSize)
+			
 	if(debugSnapshotRender):
 		if(index is not None):
 			printImage(images[index])
 		else:
 			printImages(images)
+	elif(debugSnapshotRenderFullImage):
+		print("debugSnapshotRenderFullImage:")
+		printImages(images)
+	elif(debugSnapshotRenderFinal):
+		print("debugSnapshotRenderFinal:")
+		printImages(images)
 	
 	return images
 
@@ -103,8 +116,33 @@ def printImages(images):
 
 def printImage(image):
 	#print("image = ", image)
-	plt.figure(figsize=(8, 8))
+	plt.figure(figsize=(8, 8), facecolor='lightgray')
 	plt.imshow(image.squeeze().cpu().numpy())
 	plt.axis('off')
 	plt.show()
-		
+
+def maskImageCoordiantesOutsideObjectTriangle(images, renderImageSize):
+	mask = createObjectTriangleMask(renderImageSize)
+	if(debugSnapshotRender):
+		#only draw outline of object triangle
+		maskInside = createObjectTriangleMask(renderImageSize, diagonal=-1)
+		maskInside = pt.logical_not(maskInside)
+		mask =  pt.logical_and(mask, maskInside)
+		mask =  pt.logical_not(mask)	#create black tri outline
+	mask = mask.unsqueeze(0).unsqueeze(-1)
+	images = images*mask
+	return images
+
+def createObjectTriangleMask(size, diagonal=0):
+	if(normalisedObjectTriangleHeight == 1):
+		#renderImageSize = 3
+		mask1 = pt.ones(size//2, size//2).to(device)
+		mask1 = pt.tril(mask1, diagonal)
+		mask1 = pt.repeat_interleave(mask1, 2, dim=0)
+		mask2 = pt.flip(mask1, [1])
+		mask = pt.cat((mask2, mask1), dim=1)
+		if(renderInvertedYaxisToDisplayOriginalImagesUpright):
+			mask = pt.flip(mask, [0])
+		return mask
+	else:
+		printe("createObjectTriangleMask currently requires (normalisedObjectTriangleHeight == 1)")

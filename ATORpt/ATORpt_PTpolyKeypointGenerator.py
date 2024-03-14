@@ -97,6 +97,7 @@ def getSnapshotMeshCoordinates(keypointCoordinates, imagePath):
 	#FUTURE: this function needs to be upgraded to perform the image resampling in parallel
 	
 	image = cv2.imread(imagePath)
+	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 	image = TF.to_pil_image(image)
 	
 	snapshotPixelCoordinatesList = []
@@ -107,26 +108,75 @@ def getSnapshotMeshCoordinates(keypointCoordinates, imagePath):
 		
 	for polyIndex in range(keypointCoordinates.shape[0]):
 		polyKeypointCoordinates = keypointCoordinates[polyIndex]
-		xMin = pt.min(polyKeypointCoordinates[:, xAxisGeometricHashing])
-		yMin = pt.min(polyKeypointCoordinates[:, yAxisGeometricHashing])
-		xMax = pt.max(polyKeypointCoordinates[:, xAxisGeometricHashing])
-		yMax = pt.max(polyKeypointCoordinates[:, yAxisGeometricHashing])
-		x = int((xMax - xMin) * ATORpatchPadding)
-		y = int((yMax - yMin) * ATORpatchPadding)
+		xMin = math.floor(pt.min(polyKeypointCoordinates[:, xAxisGeometricHashing]))
+		yMin = math.floor(pt.min(polyKeypointCoordinates[:, yAxisGeometricHashing]))
+		xMax = math.ceil(pt.max(polyKeypointCoordinates[:, xAxisGeometricHashing]))
+		yMax = math.ceil(pt.max(polyKeypointCoordinates[:, yAxisGeometricHashing]))
+		x = int(xMax - xMin)
+		y = int(yMax - yMin)
+		xPadded = x * ATORpatchPadding
+		yPadded = y * ATORpatchPadding
+		if(debugSnapshotRenderCroppedImage):
+			#ensure snapshot is square
+			x = 12
+			y = 12
+			xPadded = x*ATORpatchPadding
+			yPadded = y*ATORpatchPadding
 		if(ATORpatchPadding > 1):
-			xMinPadded = int(xMin-(x*ATORpatchPadding//2))
-			yMinPadded = int(yMin-(y*ATORpatchPadding//2))
+			xMinPadded = int(xMin-(x*(ATORpatchPadding-1)/2))
+			yMinPadded = int(yMin-(y*(ATORpatchPadding-1)/2))
 		else:
 			xMinPadded = int(xMin)
 			yMinPadded = int(yMin)
-		croppedImage = TF.crop(image, yMinPadded, xMinPadded, y, x)
-		xSnapshot = normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
-		ySnapshot = normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
-		xScaling = x/xSnapshot
-		yScaling = y/ySnapshot
-		resampledImage = TF.resize(croppedImage, (ySnapshot, xSnapshot))
-		resampledImage = ATORpt_operations.pil_to_tensor(resampledImage)
-			
+		
+		if(debugSnapshotRender or debugSnapshotRenderFinal):
+			#mark keypoints on image
+			R = (255, 0, 0) #RGB format
+			G = (0, 255, 0) #RGB format
+			B = (0, 0, 255) #RGB format
+			M = (255, 0, 255) #RGB format
+			Y = (255, 255, 0) #RGB format
+			C = (0, 255, 255) #RGB format
+			image.putpixel((int(polyKeypointCoordinates[0, xAxisGeometricHashing]), int(polyKeypointCoordinates[0, yAxisGeometricHashing])), M)
+			image.putpixel((int(polyKeypointCoordinates[1, xAxisGeometricHashing]), int(polyKeypointCoordinates[1, yAxisGeometricHashing])), Y)
+			image.putpixel((int(polyKeypointCoordinates[2, xAxisGeometricHashing]), int(polyKeypointCoordinates[2, yAxisGeometricHashing])), C)
+				
+		if(debugSnapshotRenderCroppedImage):
+			print("x = ", x)
+			print("y = ", y)
+			print("xPadded = ", xPadded)
+			print("yPadded = ", yPadded)
+			print("xMin = ", xMin)
+			print("yMin = ", yMin)
+			print("xMinPadded = ", xMinPadded)
+			print("yMinPadded = ", yMinPadded)
+
+			#debug without resize:
+			xSnapshot = xPadded
+			ySnapshot = yPadded
+			xScaling = 1.0
+			yScaling = 1.0
+			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+				croppedImage = TF.crop(image, yMinPadded, xMinPadded, yPadded+1, xPadded+1)
+			else:
+				croppedImage = TF.crop(image, yMinPadded, xMinPadded, yPadded, xPadded)
+			print("croppedImage.size[width] = ", croppedImage.size[0])
+			print("croppedImage.size[height] = ", croppedImage.size[1])
+			resampledImage = ATORpt_operations.pil_to_tensor(croppedImage)
+		else:
+			croppedImage = TF.crop(image, yMinPadded, xMinPadded, yPadded, xPadded)
+			xSnapshot = ATORpatchSizeIntermediary[xAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
+			ySnapshot = ATORpatchSizeIntermediary[yAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
+			xScaling = xPadded/xSnapshot
+			yScaling = yPadded/ySnapshot
+			#print("xScaling = ", xScaling)
+			#print("yScaling = ", yScaling)
+			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+				resampledImage = TF.resize(croppedImage, (ySnapshot+1, xSnapshot+1))
+			else:
+				resampledImage = TF.resize(croppedImage, (ySnapshot, xSnapshot))
+			resampledImage = ATORpt_operations.pil_to_tensor(resampledImage)
+	
 		xMesh = xSnapshot+1
 		yMesh = ySnapshot+1
 		snapshotPixelCoordinates = generatePixelCoordinates(xSnapshot, ySnapshot, xScaling, yScaling, xMinPadded, yMinPadded)
@@ -160,41 +210,37 @@ def generatePixelCoordinates(x, y, xScaling, yScaling, xMin, yMin):
 	resampledImageShape = (y, x)
 	polyPixelCoordinatesX = pt.arange(resampledImageShape[1]).expand(resampledImageShape[0], -1)	
 	polyPixelCoordinatesY = pt.arange(resampledImageShape[0]).unsqueeze(1).expand(-1, resampledImageShape[1])
+	#print("polyPixelCoordinatesX = ", polyPixelCoordinatesX)
+	#print("polyPixelCoordinatesY = ", polyPixelCoordinatesY)
 	polyPixelCoordinates = pt.stack((polyPixelCoordinatesX, polyPixelCoordinatesY), dim=-1)
 	polyPixelCoordinates = pt.reshape(polyPixelCoordinates, (polyPixelCoordinates.shape[0]*polyPixelCoordinates.shape[1], polyPixelCoordinates.shape[2]))
+	#convert polyPixelCoordinates back into original image coordinates frame:
 	polyPixelCoordinates[:, xAxisGeometricHashing] = polyPixelCoordinates[:, xAxisGeometricHashing] * xScaling
 	polyPixelCoordinates[:, yAxisGeometricHashing] = polyPixelCoordinates[:, yAxisGeometricHashing] * yScaling
 	polyPixelCoordinates[:, xAxisGeometricHashing] = polyPixelCoordinates[:, xAxisGeometricHashing] + xMin
 	polyPixelCoordinates[:, yAxisGeometricHashing] = polyPixelCoordinates[:, yAxisGeometricHashing] + yMin
 	return polyPixelCoordinates
 	
-def generatePixelValues(resampledImage, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh):
+def generatePixelValues(resampledImage, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh, fullImage=False):
 	numberOfVertices = snapshotPixelCoordinates.shape[0]
-	#print("resampledImage.shape = ", resampledImage.shape)
-	if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
-		p2d = (0, 1, 0, 1) # pad last and second last dim by (0, 1)
-		resampledImage = F.pad(resampledImage, p2d, "constant", snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal)
+	if(fullImage):
+		if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+			p2d = (0, 1, 0, 1) # pad last and second last dim by (0, 1)
+			resampledImage = F.pad(resampledImage, p2d, "constant", snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal)
 	#print("resampledImage.shape = ", resampledImage.shape)
 	#resampledImage = resampledImage.permute(2, 1, 0)	#reshape from c, y, x (cv2/TF/Pil) to x, y, c
 	resampledImage = resampledImage.permute(1, 2, 0)	#reshape from c, y, x (cv2/TF/Pil) to y, x, c
 	snapshotMeshValues = pt.reshape(resampledImage, (resampledImage.shape[0]*resampledImage.shape[1], resampledImage.shape[2]))	
-	polyMeshCoordinateIndices = pt.arange(yMesh * xMesh).reshape(yMesh, xMesh)
+	polyMeshCoordinateIndices = pt.arange(xMesh * yMesh).reshape(xMesh, yMesh)
 	if(snapshotRenderTris):
+		#consider swapping order of tri vertices (interpreted as direction of face wrt lighting)
 		snapshotMeshFaces1a = polyMeshCoordinateIndices[0:xSnapshot, 0:ySnapshot]
 		snapshotMeshFaces2a = polyMeshCoordinateIndices[1:xSnapshot+1, 0:ySnapshot]
 		snapshotMeshFaces3a = polyMeshCoordinateIndices[0:xSnapshot, 1:ySnapshot+1]
-		snapshotMeshFaces1b = polyMeshCoordinateIndices[1:xSnapshot+1, 0:ySnapshot]
-		snapshotMeshFaces2b = polyMeshCoordinateIndices[0:xSnapshot, 1:ySnapshot+1]
+		snapshotMeshFaces1b = polyMeshCoordinateIndices[0:xSnapshot, 1:ySnapshot+1]
+		snapshotMeshFaces2b = polyMeshCoordinateIndices[1:xSnapshot+1, 0:ySnapshot]
 		snapshotMeshFaces3b = polyMeshCoordinateIndices[1:xSnapshot+1, 1:ySnapshot+1]
-		'''
-		#2 different methods of tri formation;
-		snapshotMeshFaces1a = polyMeshCoordinateIndices[0:xSnapshot, 0:ySnapshot]
-		snapshotMeshFaces2a = polyMeshCoordinateIndices[1:xSnapshot+1, 0:ySnapshot]
-		snapshotMeshFaces3a = polyMeshCoordinateIndices[1:xSnapshot+1, 1:ySnapshot+1]
-		snapshotMeshFaces1b = polyMeshCoordinateIndices[0:xSnapshot, 0:ySnapshot]
-		snapshotMeshFaces2b = polyMeshCoordinateIndices[0:xSnapshot, 1:ySnapshot+1]
-		snapshotMeshFaces3b = polyMeshCoordinateIndices[1:xSnapshot+1, 1:ySnapshot+1]
-		'''		
+	
 		snapshotMeshFaces1 = pt.stack((snapshotMeshFaces1a, snapshotMeshFaces2a, snapshotMeshFaces3a), dim=2)
 		snapshotMeshFaces1 = pt.reshape(snapshotMeshFaces1, (xSnapshot*ySnapshot, snapshotMeshFaces1.shape[2]))
 		snapshotMeshFaces2 = pt.stack((snapshotMeshFaces1b, snapshotMeshFaces2b, snapshotMeshFaces3b), dim=2)
@@ -225,10 +271,8 @@ def generateMeshPolyCoordinates(snapshotMeshCoordinates):
 	snapshotMeshPolyCoordinates = pt.reshape(snapshotMeshPolyCoordinates, (snapshotPixelCoordinatesLength*snapshotPixelCoordinatesLength, snapshotMeshPolyCoordinates.shape[2], snapshotMeshPolyCoordinates.shape[3]))
 	return snapshotMeshPolyCoordinates
 
-def getImageMeshCoordinates(imagePath):
-	image = cv2.imread(imagePath)
-	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-	image = TF.to_pil_image(image)
+def getImageMeshCoordinates(image):
+
 	image_size = image.size
 	width, height = image_size
 	
@@ -251,7 +295,7 @@ def getImageMeshCoordinates(imagePath):
 	yScaling = 1.0
 	snapshotPixelCoordinates = generatePixelCoordinates(xSnapshot, ySnapshot, xScaling, yScaling, xMin, yMin)
 	snapshotMeshCoordinates = generatePixelCoordinates(xMesh, yMesh, xScaling, yScaling, xMin, yMin)
-	snapshotMeshValues, snapshotMeshFaces = generatePixelValues(image, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh) 
+	snapshotMeshValues, snapshotMeshFaces = generatePixelValues(image, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh, fullImage=True) 
 	#print("snapshotMeshCoordinates.shape = ", snapshotMeshCoordinates.shape)
 	snapshotMeshPolyCoordinates = generateMeshPolyCoordinates(snapshotMeshCoordinates)
 

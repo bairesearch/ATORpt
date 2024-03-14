@@ -73,12 +73,18 @@ def extractFeatureCoordsFromFeatureMap(dst, image):
 		
 	threshold = 0.02 * dst.max()
 	coords = np.argwhere(dst > threshold)
-	cornerFeatureList = [(coord[1], coord[0]) for coord in coords]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
+	
+	#ATOR assumes y coordinates start from bottom and go to top (resolved via renderInvertedYaxisToDisplayOriginalImagesUpright: snapshotRenderCameraRotationZaxis = 180 instead):
+	#imageHeight = image.shape[0]
+	#coords[:, 0] = -coords[: , 0] + imageHeight
+	
+	cornerFeatureList = [(coord[xAxisImages], coord[yAxisImages]) for coord in coords]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
 
 	#print("cornerFeatureList = ", cornerFeatureList)
 	print("len cornerFeatureList = ", len(cornerFeatureList))
 	
-	#printFeatureDetectionMap(dst, image, threshold)	#debug
+	if(debugFeatureDetection):
+		printFeatureDetectionMap(dst, image, threshold)
 	
 	return cornerFeatureList
 
