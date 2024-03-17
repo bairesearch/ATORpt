@@ -120,6 +120,7 @@ def drawImageWithKeypoints(imagePath, keypointCoordinates):
 	
 	
 def getImageCV(imagePath, zoomIndex):
+	print("imagePath = ", imagePath)
 	zoom = ATORpt_PTfeatures.getZoomValue(zoomIndex)
 	image = cv2.imread(imagePath)
 	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

@@ -26,7 +26,7 @@ pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
 #debug vars:
-debugProcessSingleImage = True
+debugProcessSingleImage = False
 debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
 debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the renderer
 debugSnapshotRender = False	#draw intermediary transformed snapshots to debug the renderer
@@ -153,7 +153,7 @@ else:
 			if(useATORCPPserial):
 				batchSize = 1	#must process images serially (currently required for ATOR parallelised geometric hashing; assume first dimension of snapshot data in ATOR operations is patch index)
 			else:
-				batchSize = 2 #2, 4, 8
+				batchSize = 2 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
 	else:
 		batchSize = 4 #2, 4, 8
 	normaliseSnapshotLength = 30
@@ -188,7 +188,7 @@ else:
 		useGeometricHashingHardcodedParallelisedDeformation = True	#apply multiple rotation matrices in parallel
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
-		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
+		useFeatureDetectionCentroids = True	#default: True #disable for debug (speed)
 		keypointDetectionCriteria = True
 		if(keypointDetectionCriteria):
 			keypointDetectionMaxSimilarity = 1.0	#in pixels

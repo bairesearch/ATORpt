@@ -50,10 +50,10 @@ if(databaseName == "ALOI-VIEW"):
 					viewIndex = debugProcessSingleViewIndexTest
 			else:
 				if(self.train):
-					imageIndex = idx/ALOIdatabaseNumberOfViewsTrain
+					imageIndex = idx//ALOIdatabaseNumberOfViewsTrain
 					viewIndex = idx%ALOIdatabaseNumberOfViewsTrain
 				else:
-					imageIndex = idx/ALOIdatabaseNumberOfViewsTest
+					imageIndex = idx//ALOIdatabaseNumberOfViewsTest
 					viewIndex = idx%ALOIdatabaseNumberOfViewsTest + ALOIdatabaseNumberOfViewsTrain
 			return imageIndex, viewIndex
 						
