@@ -101,10 +101,15 @@ def cropCoordinatesArray(coordinates):
 def performKeypointDetection(imageFeatureCoordinates):
 	#featureCoordinatesList size = batchSize list of [featureIndex, x/yIndex]
 	keypointCoordinates = performKeypointDetectionBasic(imageFeatureCoordinates)
-	#print("keypointCoordinates.shape = ", keypointCoordinates.shape)
 	return keypointCoordinates
 			
 def performKeypointDetectionBasic(featureCoordinates):
+
+	if(keypointDetectionCriteria):
+		#criteria 0: ensure keypoints are not same
+		maskNotSame = keypointDetectionNotSame(featureCoordinates)
+		featureCoordinates = featureCoordinates[maskNotSame]
+	
 	#based on ATORpt_RFapply:generateRFtypeTriFromPointFeatureSets
 	if(featureCoordinates.shape[0] >= ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints):
 		sampleKeypointCoordinates = featureCoordinates	#first keypoint in candidate poly
@@ -129,12 +134,9 @@ def performKeypointDetectionBasic(featureCoordinates):
 						#mask = maskXYdiff
 						#criteria 2: object triangle apex has sufficient y diff;
 						maskApexYdiff = (keypointsSetMaxY.values >= (keypointsSetMidY['values']+keypointDetectionMinApexYDiff))
-						#criteria 3: object triangle base has significant x diff;
-						keypointsSetBaseX = selectOtherKeypoints(keypointsSet, keypointsSetMaxY, xAxisFeatureMap)
-						keypointsSetBaseMinX = pt.min(keypointsSetBaseX, dim=1)
-						keypointsSetBaseMaxX = pt.max(keypointsSetBaseX, dim=1)
-						maskBaseXdiff = (keypointsSetBaseMaxX.values >= (keypointsSetBaseMinX.values+keypointDetectionMinBaseXDiff))
-						mask = pt.logical_and(pt.logical_and(maskXYdiff, maskApexYdiff), maskBaseXdiff)
+						#criteria 3: ensure keypoints are not colinear
+						maskNotColinear = keypointDetectionNotColinear(keypointsSet)
+						mask = pt.logical_and(pt.logical_and(maskXYdiff, maskApexYdiff), maskNotColinear)
 						keypointsSet = keypointsSet[mask]
 						
 					keypointSetList.append(keypointsSet)
@@ -143,14 +145,27 @@ def performKeypointDetectionBasic(featureCoordinates):
 		keypointCoordinates = pt.tensor((0, 3, 2))
 	return keypointCoordinates
 
+def keypointDetectionNotSame(keypoints):
+	distances = pt.cdist(keypoints, keypoints)
+	distances.fill_diagonal_(-1)
+	distancesSimilar = (distances < keypointDetectionMaxSimilarity) & (distances != -1)
+	distancesSimilar = distancesSimilar.float() * pt.triu(pt.ones_like(distancesSimilar, dtype=pt.float32), diagonal=1)
+	distancesAnySimilar = pt.sum(distancesSimilar, dim=1)
+	distancesAnySimilar = distancesAnySimilar > 0
+	distancesAllDifferent = pt.logical_not(distancesAnySimilar)
+	return distancesAllDifferent
+
+def keypointDetectionNotColinear(keypoints):
+	slope1 = (keypoints[:, 1, 1] - keypoints[:, 0, 1]) / (keypoints[:, 1, 0] - keypoints[:, 0, 0])
+	slope2 = (keypoints[:, 2, 1] - keypoints[:, 1, 1]) / (keypoints[:, 2, 0] - keypoints[:, 1, 0])
+	slope_diff = pt.abs(slope1 - slope2)
+	non_colinear_mask = slope_diff >= keypointDetectionMaxColinearity
+	return non_colinear_mask
+
 def selectOtherKeypoints(keypointsSet, keypointsNotToSelect, axis):
 	mask = pt.ones_like(keypointsSet[..., axis], dtype=pt.bool)
 	mask[pt.arange(keypointsSet.shape[0]), keypointsNotToSelect.indices] = False
 	resampled_tensor = pt.masked_select(keypointsSet[..., axis], mask).reshape(keypointsSet.shape[0], 2)
-	'''
-	mask = (keypointsSet != (keypointsSetMaxY.values).unsqueeze(1))
-	resampled_tensor = tensor[mask].view(N, 2)
-	'''	
 	return resampled_tensor
 	
 def mid(array, arrayMin, arrayMax, dim=1):

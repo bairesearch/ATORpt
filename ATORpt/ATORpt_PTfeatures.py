@@ -27,14 +27,12 @@ from ATORpt_globalDefs import *
 
 def featureDetection(image, zoomIndex):
 	zoom = getZoomValue(zoomIndex)
-	imageFeatureCoordinatesList = []
+	imageFeatureCoordinates = []
 	if(useFeatureDetectionCorners):
-			imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVHarris(image)
-		#imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVShiTomasi(image)
+		imageFeatureCoordinates = featureDetectionCornerOpenCVHarris(image)
+		#imageFeatureCoordinates = pt.cat((imageFeatureCoordinates, featureDetectionCornerOpenCVShiTomasi(image)), dim=0)
 	if(useFeatureDetectionCentroids):
-		imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCentroidFBSegmentAnything(image)
-	imageFeatureCoordinates = pt.tensor(imageFeatureCoordinatesList, dtype=pt.float32)	#double->float conversion required for featureDetectionCentroidFBSegmentAnything:calculateMaskCentroid
-	#print("imageFeatureCoordinates.shape = ", imageFeatureCoordinates.shape)
+		imageFeatureCoordinates = pt.cat((imageFeatureCoordinates, featureDetectionCentroidFBSegmentAnything(image)), dim=0)
 	imageFeatureCoordinates = imageFeatureCoordinates*zoom	#ensure feature coordinates are defined with respect to original image coordinates
 	return imageFeatureCoordinates
 
@@ -70,21 +68,24 @@ def extractFeatureCoordsFromFeatureMapSubpixel(dst, image):
 	dst = np.uint8(dst)
 	ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
 	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
-	corners = cv2.cornerSubPix(image,np.float32(centroids),(5,5),(-1,-1),criteria)
-
-	#centroids = np.int0(centroids)
-	#corners = np.int0(corners)
-	#img[corners[:,yAxisFeatureMap], corners[:,xAxisFeatureMap]] = 255
-
-	cornerFeatureList = [(coord[xAxisFeatureMap], coord[yAxisFeatureMap]) for coord in corners]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
-	print("len cornerFeatureList = ", len(cornerFeatureList))
+	corners = cv2.cornerSubPix(image,np.float32(centroids),(5,5),(-1,-1),criteria)	#respects xAxisFeatureMap/yAxisFeatureMap
+	
+	cornerFeatures = pt.tensor(corners, dtype=pt.float32) 	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
+	print("cornerFeatures len = ", cornerFeatures.shape[0])
 	
 	if(debugFeatureDetection):
-		printFeatureDetectionMapSubpixel(cornerFeatureList, image)
+		printFeaturesArraySubpixel(corners, image)
 	
-	return cornerFeatureList
+	return cornerFeatures
 		
-def printFeatureDetectionMapSubpixel(cornerFeatureList, image):
+def printFeaturesArraySubpixel(corners, image):
+	corners = np.int0(corners)
+	image[corners[:,yAxisFeatureMap], corners[:,xAxisFeatureMap]] = 255
+	cv2.imshow('Corner Detection', image)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
+
+def printFeatureListSubpixel(cornerFeatureList, image):
 	for corner in cornerFeatureList:
 		x = int(corner[xAxisFeatureMap])
 		y = int(corner[yAxisFeatureMap])
@@ -131,24 +132,18 @@ def featureDetectionCentroidFBSegmentAnything(image):
 	for segmentationIndex, segmentationMask in enumerate(masks):
 		centroid = calculateMaskCentroid(segmentationMask['segmentation'])
 		centroidFeatureList.append(centroid)
-	#print("masks: ", masks[0]['segmentation'])
-	#print("centroidFeatureList = ", centroidFeatureList)
-	print("len centroidFeatureList = ", len(centroidFeatureList))
-
-	return centroidFeatureList
+	centroidFeatures = pt.tensor(centroidFeatureList, dtype=pt.float32)
+	print("centroidFeatures len = ", centroidFeatures.shape[0])
+	return centroidFeatures
 
 def calculateMaskCentroid(mask):
-	# Calculate moments
 	m00 = np.sum(mask)
 	m10 = np.sum(np.arange(mask.shape[0])[:, None] * mask)
 	m01 = np.sum(np.arange(mask.shape[1])[None, :] * mask)
-
-	# Calculate centroid
 	if m00 == 0:
 		centroid_x, centroid_y = 0, 0
 	else:
 		centroid_x = m10 / m00
 		centroid_y = m01 / m00
-
 	centroid = (centroid_x, centroid_y)	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
 	return centroid

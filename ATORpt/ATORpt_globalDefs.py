@@ -191,10 +191,11 @@ else:
 		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
 		keypointDetectionCriteria = True
 		if(keypointDetectionCriteria):
+			keypointDetectionMaxSimilarity = 1.0	#in pixels
 			keypointDetectionMinXYdiff = 5	#minimum difference along X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
 			keypointDetectionMinApexYDiff = 2	#minimum difference of Y axis apex of object triangle
-			keypointDetectionMinBaseXDiff = 2	#minimum difference along an X axis for base of object triangle
-			#keypointDetectionNotColinear = True #TODO
+			#keypointDetectionMinBaseXDiff = 2	#minimum difference along an X axis for base of object triangle
+			keypointDetectionMaxColinearity = 1.0 #0.3	#as a proportion of X/Y distance off line
 		ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints = 3	#must be >= 2
 		snapshotRenderer = "pytorch3D"
 		normalisedObjectTriangleBaseLength = 1
