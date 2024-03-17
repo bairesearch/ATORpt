@@ -1,4 +1,4 @@
-"""ATORpt_PTfeatureDetector.py
+"""ATORpt_PTfeatures.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -13,7 +13,7 @@ See ATORpt_main.py
 See ATORpt_main.py
 
 # Description:
-ATORpt PT feature detector - variod third party feature detectors
+ATORpt PT features - various third party feature detectors
 
 """
 
@@ -29,7 +29,7 @@ def featureDetection(image, zoomIndex):
 	zoom = getZoomValue(zoomIndex)
 	imageFeatureCoordinatesList = []
 	if(useFeatureDetectionCorners):
-		imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVHarris(image)
+			imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVHarris(image)
 		#imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCornerOpenCVShiTomasi(image)
 	if(useFeatureDetectionCentroids):
 		imageFeatureCoordinatesList = imageFeatureCoordinatesList + featureDetectionCentroidFBSegmentAnything(image)
@@ -50,7 +50,7 @@ def featureDetectionCornerOpenCVHarris(image):
 	dst = cv2.cornerHarris(image_float32, 2, 3, 0.04)	#cv2.cuda
 	#dst = dst.download()
 	
-	cornerFeatureList = extractFeatureCoordsFromFeatureMap(dst, image)
+	cornerFeatureList = extractFeatureCoordsFromFeatureMapSubpixel(dst, image)
 	return cornerFeatureList
 
 def featureDetectionCornerOpenCVShiTomasi(image):
@@ -60,10 +60,39 @@ def featureDetectionCornerOpenCVShiTomasi(image):
 	dst = cv2.cornerMinEigenVal(image_float32, 3, 3, 3)	#cv2.cuda
 	#dst = dst.download()
 	
-	cornerFeatureList = extractFeatureCoordsFromFeatureMap(dst, image)
+	cornerFeatureList = extractFeatureCoordsFromFeatureMapSubpixel(dst, image)
 	print("cornerFeatureList = ", cornerFeatureList)
 	return cornerFeatureList
 
+def extractFeatureCoordsFromFeatureMapSubpixel(dst, image):
+	dst = cv2.dilate(dst,None)
+	ret, dst = cv2.threshold(dst,0.01*dst.max(),255,0)
+	dst = np.uint8(dst)
+	ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
+	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+	corners = cv2.cornerSubPix(image,np.float32(centroids),(5,5),(-1,-1),criteria)
+
+	#centroids = np.int0(centroids)
+	#corners = np.int0(corners)
+	#img[corners[:,yAxisFeatureMap], corners[:,xAxisFeatureMap]] = 255
+
+	cornerFeatureList = [(coord[xAxisFeatureMap], coord[yAxisFeatureMap]) for coord in corners]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
+	print("len cornerFeatureList = ", len(cornerFeatureList))
+	
+	if(debugFeatureDetection):
+		printFeatureDetectionMapSubpixel(cornerFeatureList, image)
+	
+	return cornerFeatureList
+		
+def printFeatureDetectionMapSubpixel(cornerFeatureList, image):
+	for corner in cornerFeatureList:
+		x = int(corner[xAxisFeatureMap])
+		y = int(corner[yAxisFeatureMap])
+		image[y, x] = 255
+	cv2.imshow('Corner Detection', image)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
+	
 def extractFeatureCoordsFromFeatureMap(dst, image):
 	dilation_size = 4
 	kernel = np.ones((dilation_size, dilation_size), np.uint8)  # Create a kernel for dilation
@@ -79,8 +108,6 @@ def extractFeatureCoordsFromFeatureMap(dst, image):
 	#coords[:, 0] = -coords[: , 0] + imageHeight
 	
 	cornerFeatureList = [(coord[xAxisImages], coord[yAxisImages]) for coord in coords]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
-
-	#print("cornerFeatureList = ", cornerFeatureList)
 	print("len cornerFeatureList = ", len(cornerFeatureList))
 	
 	if(debugFeatureDetection):

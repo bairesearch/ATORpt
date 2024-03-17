@@ -24,7 +24,7 @@ import torchvision.transforms as T
 
 from ATORpt_globalDefs import *
 import ATORpt_E2Eoperations
-import ATORpt_E2EpolyKeypointGenerator
+import ATORpt_E2Ekeypoints
 import ATORpt_PTgeometricHashing
 import ATORpt_operations
 
@@ -94,7 +94,7 @@ class GeometricHashingClass(nn.Module):
 			
 			geometricHashingPixelPosEmbeddings = posEmbeddingsNormalised
 
-			geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings = ATORpt_E2EpolyKeypointGenerator.performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings)
+			geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings = ATORpt_E2Ekeypoints.performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNormalised, geometricHashingPixelPosEmbeddings)
 			
 			if(useGeometricHashingAMANN):
 				posEmbeddingsAbsoluteGeoNormalisedN = self.performGeometricHashingAMANN(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings)

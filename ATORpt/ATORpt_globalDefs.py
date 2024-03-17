@@ -30,9 +30,9 @@ debugProcessSingleImage = True
 debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
 debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the renderer
 debugSnapshotRender = False	#draw intermediary transformed snapshots to debug the renderer
+debugGeometricHashingParallelFinal = False
 debugGeometricHashingParallel = False	#print intermediary transformed keypoints to debug the geometric hashing
-if(debugGeometricHashingParallel):
-	debugGeometricHashingParallelLargeMarker = True
+debugGeometricHashingParallelLargeMarker = True
 debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of untransformed snapshots) to debug the image coordinates generation for geometric hashing/rendering
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
@@ -159,7 +159,7 @@ else:
 	normaliseSnapshotLength = 30
 	numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features
-	if(debugGeometricHashingParallel or debugSnapshotRender):
+	if(debugGeometricHashingParallel or debugSnapshotRender or debugGeometricHashingParallelFinal or debugSnapshotRenderFinal):
 		VITmaxNumberATORpatches = 30
 	else: 
 		VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
@@ -189,7 +189,12 @@ else:
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
 		useFeatureDetectionCentroids = False	#default: True #disable for debug (speed)
-		keypointDetectionMinXYdiff = 5	#minimum difference along an X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
+		keypointDetectionCriteria = True
+		if(keypointDetectionCriteria):
+			keypointDetectionMinXYdiff = 5	#minimum difference along X, Y axis in pixels for all 3 keypoints in a poly (used to ignore extremely elongated poly candidates)
+			keypointDetectionMinApexYDiff = 2	#minimum difference of Y axis apex of object triangle
+			keypointDetectionMinBaseXDiff = 2	#minimum difference along an X axis for base of object triangle
+			#keypointDetectionNotColinear = True #TODO
 		ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints = 3	#must be >= 2
 		snapshotRenderer = "pytorch3D"
 		normalisedObjectTriangleBaseLength = 1

@@ -24,7 +24,7 @@ import torchvision.transforms as T
 
 from ATORpt_globalDefs import *
 import ATORpt_E2EgeometricHashing
-import ATORpt_E2EfeatureDetectorCNN
+import ATORpt_E2Efeatures
 import ATORpt_E2EAMANN
 import ATORpt_E2Eoperations
 #from torchdim import dims
@@ -53,7 +53,7 @@ class ATORmodelClass(nn.Module):
 		self.sequenceLength = ATORpt_E2Eoperations.getInputLayerNumTokens(numberOfPatches)
 		
 		if(useGeometricHashingCNNfeatureDetector):
-			self.featureDetectorCNN = ATORpt_E2EfeatureDetectorCNN.FeatureDetectorCNNClass(self.featureDetectorNumPatches)
+			self.featureDetectorCNN = ATORpt_E2Efeatures.FeatureDetectorCNNClass(self.featureDetectorNumPatches)
 		else:
 			pass
 			#use custom feature detector (e.g. Heitger et al.)

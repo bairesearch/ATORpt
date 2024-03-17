@@ -21,7 +21,6 @@ import torch as pt
 import math
 
 from ATORpt_globalDefs import *
-import ATORpt_operations
 
 import torch as pt
 import torch.nn.functional as F
@@ -102,7 +101,8 @@ def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderIma
 	return images
 
 def printImages(images):
-	for image in images:
+	for index, image in enumerate(images):
+		print("printImages: index = ", index)
 		printImage(image)
 
 def printImage(image):

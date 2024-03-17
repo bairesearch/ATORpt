@@ -1,4 +1,4 @@
-"""ATORpt_PTpolyKeypointGenerator.py
+"""ATORpt_PTmesh.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -13,84 +13,18 @@ see ATORpt_main.py
 See ATORpt_main.py
 
 # Description:
-ATORpt PT poly Keypoint Generator
+ATORpt PT mesh
 
 """
 
 import torch as pt
-import torch.nn as nn
-import numpy as np
 import torchvision.transforms.functional as TF
 import torch.nn.functional as F
-from PIL import Image
 import cv2
 import math
 
 from ATORpt_globalDefs import *
 import ATORpt_operations
-
-def padCoordinatesArrays(imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates):
-	#ensure num of polys is equal per image
-	imageKeypointCoordinates = padCoordinatesArray(imageKeypointCoordinates)
-	snapshotPixelCoordinates = padCoordinatesArray(snapshotPixelCoordinates)
-	snapshotMeshCoordinates = padCoordinatesArray(snapshotMeshCoordinates)
-	snapshotMeshValues = padCoordinatesArray(snapshotMeshValues)
-	snapshotMeshFaces = padCoordinatesArray(snapshotMeshFaces)
-	snapshotMeshPolyCoordinates = padCoordinatesArray(snapshotMeshPolyCoordinates)
-	return imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates
-	
-def padCoordinatesArray(coordinates):
-	coordinatesPadded = padAlongDimension(coordinates, 0, ATORmaxNumberOfPolys)
-	return coordinatesPadded
-
-def padAlongDimension(x, dimToPad, targetSize):
-	currentSize = x.shape[0]
-	currentType = x.dtype
-	padSize = targetSize-currentSize
-	if(padSize > 0):
-		padShape = list(x.shape)
-		padShape[dimToPad] = padSize
-		pad = pt.ones(padShape, dtype=currentType).to(device) * meshPadValue
-		xPadded = pt.cat((x, pad), dim=dimToPad)
-	else:
-		xPadded = x
-	return xPadded
-
-def cropCoordinatesArray(coordinates):
-	dimToCrop = 0
-	if(coordinates.shape[0] > ATORmaxNumberOfPolys):
-		coordinates = coordinates[0:ATORmaxNumberOfPolys]
-	return coordinates
-	
-def performKeypointDetection(imageFeatureCoordinates):
-	#featureCoordinatesList size = batchSize list of [featureIndex, x/yIndex]
-	keypointCoordinates = performKeypointDetectionBasic(imageFeatureCoordinates)
-	#print("keypointCoordinates.shape = ", keypointCoordinates.shape)
-	return keypointCoordinates
-			
-def performKeypointDetectionBasic(featureCoordinates):
-	#based on ATORpt_RFapply:generateRFtypeTriFromPointFeatureSets
-	if(featureCoordinates.shape[0] >= ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints):
-		sampleKeypointCoordinates = featureCoordinates	#first keypoint in candidate poly
-		nearestKeypointCoordinates = ATORpt_operations.knn_search(sampleKeypointCoordinates, ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints)
-		keypointSetList = []
-		for k2 in range(ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints):
-			for k3 in range(ATORmaxNumberOfNearestFeaturesToSamplePolyKeypoints):
-				if(k2 != k3):
-					keypointsSet = pt.stack((sampleKeypointCoordinates, nearestKeypointCoordinates[:, k2], nearestKeypointCoordinates[:, k3]), dim=1)
-					keypointsSetMinX = pt.min(keypointsSet[..., xAxisFeatureMap], dim=1).values
-					keypointsSetMinY = pt.min(keypointsSet[..., yAxisFeatureMap], dim=1).values
-					keypointsSetMaxX = pt.max(keypointsSet[..., xAxisFeatureMap], dim=1).values
-					keypointsSetMaxY = pt.max(keypointsSet[..., yAxisFeatureMap], dim=1).values
-					keypointsSetXdiff = pt.subtract(keypointsSetMaxX, keypointsSetMinX)
-					keypointsSetYdiff = pt.subtract(keypointsSetMaxY, keypointsSetMinY)
-					mask = pt.logical_and((keypointsSetXdiff > keypointDetectionMinXYdiff), (keypointsSetYdiff > keypointDetectionMinXYdiff))
-					keypointsSet = keypointsSet[mask]
-					keypointSetList.append(keypointsSet)
-		keypointCoordinates = pt.cat(keypointSetList, dim=0)		
-	else:
-		keypointCoordinates = pt.tensor((0, 3, 2))
-	return keypointCoordinates
 
 def getSnapshotMeshCoordinates(keypointCoordinates, imagePath):
 	#resample snapshot mesh coordinates wrt keypoints
@@ -314,4 +248,3 @@ def centrePixelCoordinates(snapshotPixelCoordinates, x, y):
 	snapshotPixelCoordinates[:, :, xAxisGeometricHashing] = snapshotPixelCoordinates[:, :, xAxisGeometricHashing] - x/2
 	snapshotPixelCoordinates[:, :, yAxisGeometricHashing] = snapshotPixelCoordinates[:, :, yAxisGeometricHashing] - y/2
 	return snapshotPixelCoordinates
-	

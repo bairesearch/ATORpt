@@ -1,4 +1,4 @@
-"""ATORpt_E2EpolyKeypointGenerator.py
+"""ATORpt_E2Ekeypoints.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -13,7 +13,7 @@ see ATORpt_main.py
 See ATORpt_main.py
 
 # Description:
-ATORpt E2E poly Keypoint Generator
+ATORpt E2E keypoints
 
 """
 

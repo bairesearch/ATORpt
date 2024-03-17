@@ -47,15 +47,13 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	transformedKeypointCoordinates = keypointCoordinates	#retain original for calculations	#.copy()
 	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=0)	#will be out of range of render view port
 	
-	#reorder keypointCoordinates;
+	#ATORpt_operations.printCoordinates(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=0, centreSnapshots=False)
+	
+	#keypointCoordinates;
 	# kp2
 	#  \\
 	#   \_\
 	#  kp1 kp0  
-	
-	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 1, 0, yAxisGeometricHashing)
-	keypointCoordinates = keypointSwap(keypointCoordinates, 2, 0, 1, yAxisGeometricHashing)
-	keypointCoordinates = keypointSwap(keypointCoordinates, 0, 1, 1, xAxisGeometricHashing)	#OLD: 0, 1, 2
 	
 	#apply hardcoded geometric hashing function;
 
@@ -103,37 +101,13 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	transformedMeshCoordinates = applyShear2D(transformedMeshCoordinates, shearMatrix)
 	transformedKeypointCoordinates = applyShear2D(transformedKeypointCoordinates, shearMatrix)
 	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=5)
-	#ATORpt_operations.printCoordinates(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=5, centreSnapshots=False)
+	
+	ATORpt_operations.printCoordinates(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=5, centreSnapshots=False)
 
 	#print("transformedKeypointCoordinatesExpected = ", transformedKeypointCoordinatesExpected)
 	
 	return transformedMeshCoordinates
 
-def keypointSwap(keypoints, keypointAindex, keypointBindex, keypointCindex, axis):
-
-	#condition (no swap): keypointA[axis] > keypointB[axis] (element wise test)
-	#else swap keypointA for keypointC (element wise)
-	#precondition: number of keypoints = 3
-	#precondition: number of geometric dimensions = 2
-
-	keyPointA = keypoints[:, keypointAindex]
-	keyPointB = keypoints[:, keypointBindex]
-	keyPointC = keypoints[:, keypointCindex]
-
-	keyPointANewX = pt.where(keyPointA[:, axis] > keyPointB[:, axis], keyPointA[:, xAxisGeometricHashing], keyPointC[:, xAxisGeometricHashing])
-	keyPointANewY = pt.where(keyPointA[:, axis] > keyPointB[:, axis], keyPointA[:, yAxisGeometricHashing], keyPointC[:, yAxisGeometricHashing])
-	keyPointCNewX = pt.where(keyPointA[:, axis] > keyPointB[:, axis], keyPointC[:, xAxisGeometricHashing], keyPointA[:, xAxisGeometricHashing])
-	keyPointCNewY = pt.where(keyPointA[:, axis] > keyPointB[:, axis], keyPointC[:, yAxisGeometricHashing], keyPointA[:, yAxisGeometricHashing])
-	keyPointANew = pt.stack([keyPointANewX, keyPointANewY], dim=1)
-	keyPointCNew = pt.stack([keyPointCNewX, keyPointCNewY], dim=1)
-	keypoints[:, keypointAindex] = keyPointANew
-	keypoints[:, keypointCindex] = keyPointCNew
-	
-	if(debugGeometricHashingParallel):	
-		print("keypointSwap(keypointCoordinates, keypointAindex=", keypointAindex, ", keypointBindex=",  keypointBindex, ", keypointCindex=", keypointCindex, ", axis=", axis)
-		print("keypoints[0] = ", keypoints[0])
-
-	return keypoints
 
 def createRotationMatrix2Dvec(vec):
 	phi = calculateAngleOfVector(vec)
