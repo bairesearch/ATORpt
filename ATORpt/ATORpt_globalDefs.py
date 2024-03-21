@@ -20,6 +20,7 @@ ATORpt global definitions
 import torch as pt
 import torch.nn as nn
 import math
+import os
 
 pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
@@ -37,6 +38,10 @@ debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of 
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
 
+userName = 'systemusername'	#default: systemusername
+if(os.path.isdir('user')):
+	from user.user_globalDefs import *
+	
 #ATOR implementation select:
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -51,7 +56,7 @@ else:
 	elif(useATORPTparallel):
 		databaseName = "ALOI-VIEW"	#"MNIST"	#optional
 if(databaseName == "ALOI-VIEW"):
-	databaseRoot = "/media/rich/datasets/ALOI-VIEW/" 
+	databaseRoot = "/media/" + userName + "/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
 	numberOfOutputDimensions = 1000	
 	if(debugProcessSingleImage):
@@ -160,7 +165,7 @@ else:
 	numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features
 	if(debugGeometricHashingParallel or debugSnapshotRender or debugGeometricHashingParallelFinal or debugSnapshotRenderFinal):
-		VITmaxNumberATORpatches = 30
+		VITmaxNumberATORpatches = 60	#90	#30
 	else: 
 		VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
 	VITnumberOfPatches = VITmaxNumberATORpatches
@@ -174,7 +179,7 @@ else:
 	VITnumberOfHeads = 8
 	VITnumberOfLayers = 3
 	VITnumberOfClasses = databaseNumberOfClasses
-	inputfolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
+	inputfolder = "/media/" + userName + "/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
 	numberOfGeometricDimensions = 2	#2D object data (2DOD)
 	if(useATORPTparallel):		
 		fullRotationalInvariance = False	#optional	#requires 3x GPU ram #create keypoint sets for every poly orientation (x3) - else assume input image is roughly upright; only perform 1 geometric hashing transformation (not geometricHashingNumKeypoints transformations, based on every possible permutation of keypoints)
@@ -247,9 +252,9 @@ else:
 		exeFolder = "exe/" 
 		ATORCexe = "ATOR.exe"
 		FDCexe = "FD.exe"
-		exefolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/exe"	#location of ATOR.exe, FD.exe
+		exefolder = "/media/" + userName + "/large/source/ANNpython/ATORpt/ATORpt/exe"	#location of ATOR.exe, FD.exe
 		ATOR_DATABASE_FILESYSTEM_DEFAULT_DATABASE_NAME = "ATORfsdatabase/"	#sync with ATORdatabaseFileIO.hpp
-		ATOR_DATABASE_FILESYSTEM_DEFAULT_SERVER_OR_MOUNT_NAME = "/media/rich/large/source/ANNpython/ATORpt/"	#sync with ATORdatabaseFileIO.hpp
+		ATOR_DATABASE_FILESYSTEM_DEFAULT_SERVER_OR_MOUNT_NAME = "/media/" + userName + "/large/source/ANNpython/ATORpt/"	#sync with ATORdatabaseFileIO.hpp
 		ATOR_DATABASE_CONCEPT_NAME_SUBDIRECTORY_INDEX_NUMBER_OF_LEVELS = 3 	#eg e/x/a/example
 		ATOR_DATABASE_TEST_FOLDER_NAME = "test"	#sync with ATORdatabaseFileIO.hpp
 		ATOR_DATABASE_TRAIN_FOLDER_NAME = "train"	#sync with ATORdatabaseFileIO.hpp

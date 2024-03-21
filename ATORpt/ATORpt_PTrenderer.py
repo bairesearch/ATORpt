@@ -88,7 +88,8 @@ def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderIma
 			
 	if(debugSnapshotRender):
 		if(index is not None):
-			printImage(images[index])
+			title = "poly index: " + str(index)
+			printImage(images[index], title=title)
 		else:
 			printImages(images)
 	elif(debugSnapshotRenderFullImage):
@@ -102,12 +103,14 @@ def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderIma
 
 def printImages(images):
 	for index, image in enumerate(images):
-		print("printImages: index = ", index)
-		printImage(image)
+		#print("printImages: index = ", index)
+		title = "poly index: " + str(index)
+		printImage(image, title=title)
 
-def printImage(image):
+def printImage(image, title=""):
 	#print("image = ", image)
-	plt.figure(figsize=(8, 8), facecolor='lightgray')
+	fig = plt.figure(figsize=(8, 8), facecolor='lightgray')
+	fig.canvas.manager.set_window_title(title)
 	plt.imshow(image.squeeze().cpu().numpy())
 	plt.axis('off')
 	plt.show()

@@ -41,7 +41,7 @@ if(fullRotationalInvariance):
 		#print("keypointSwap: out keypoints = ", keypoints)
 		return keypoints
 		
-	def reorderKeypoints(keypointCoordinates, meshCoordinates):
+	def reorderKeypoints(keypointCoordinates):
 
 		#reorder keypointCoordinates (ensure clockwise definition of keypoints within poly tri);
 		# kp2
@@ -49,76 +49,64 @@ if(fullRotationalInvariance):
 		#   \_\
 		#  kp1 kp0  
 
-		keypointCoordinates = keypointClockwiseOrderSwap(keypointCoordinates)
-		#keypointCoordinates, meshCoordinates = keypointOrderFlip(keypointCoordinates, meshCoordinates)
+		keypointCoordinates = keypointClockwiseOrder(keypointCoordinates)
 
-		return keypointCoordinates, meshCoordinates
-		
-	def keypointClockwiseOrderSwap(keypoints):
-		#make kp2 the primary keypoint of the poly rotational permutation (kp0, kp1 will be swapped if necessary to ensure clockwise definition of keypoints within poly tri)
-		signedTriArea = -calculateSignedArea(keypoints)	#CHECKTHIS: -
-		#print("keypoints = ", keypoints)
-		#print("signedTriArea = ", signedTriArea)
-		keyPointA = keypoints[:, keypointAindex]
-		keyPointB = keypoints[:, keypointBindex]
-		keyPointC = keypoints[:, keypointCindex]
-		#Swap A and B to ensure clockwise order
-		keyPointANewX = pt.where(signedTriArea < 0, keyPointB[:, xAxisGeometricHashing], keyPointA[:, xAxisGeometricHashing])
-		keyPointANewY = pt.where(signedTriArea < 0, keyPointB[:, yAxisGeometricHashing], keyPointA[:, yAxisGeometricHashing])
-		keyPointBNewX = pt.where(signedTriArea < 0, keyPointA[:, xAxisGeometricHashing], keyPointB[:, xAxisGeometricHashing])
-		keyPointBNewY = pt.where(signedTriArea < 0, keyPointA[:, yAxisGeometricHashing], keyPointB[:, yAxisGeometricHashing])
-		keyPointANew = pt.stack([keyPointANewX, keyPointANewY], dim=1)
-		keyPointBNew = pt.stack([keyPointBNewX, keyPointBNewY], dim=1)
-		keyPointCNew = keyPointC
-		keypoints[:, keypointAindex] = keyPointANew
-		keypoints[:, keypointBindex] = keyPointBNew
-		keypoints[:, keypointCindex] = keyPointCNew
-		return keypoints
-
-	def calculateSignedArea(keypoints):
-		BmAx = (keypoints[:, keypointBindex, xAxisGeometricHashing] - keypoints[:, keypointAindex, xAxisGeometricHashing])
-		CmAy = (keypoints[:, keypointCindex, yAxisGeometricHashing] - keypoints[:, keypointAindex, yAxisGeometricHashing])
-		CmAx = (keypoints[:, keypointCindex, xAxisGeometricHashing] - keypoints[:, keypointAindex, xAxisGeometricHashing])
-		BmAy = (keypoints[:, keypointBindex, yAxisGeometricHashing] - keypoints[:, keypointAindex, yAxisGeometricHashing])
-		signedTriArea = ((BmAx * CmAy) - (CmAx * BmAy))
-		#dim = [numberOfPolys]
-		return signedTriArea
-
-	#not used;
-	def keypointOrderFlip(keypointCoordinates, meshCoordinates):
-		#y axis will not work when kp2 point occurs midway along axis y
-		ABy = pt.stack((keypointCoordinates[:, keypointAindex, yAxisGeometricHashing], keypointCoordinates[:, keypointBindex, yAxisGeometricHashing]), dim=0)
-		ABmaxY = pt.max(ABy, dim=0).values
-		maskFlipY = (keypointCoordinates[:, keypointCindex, yAxisGeometricHashing] < ABmaxY)
-		maskFlipX = (keypointCoordinates[:, keypointAindex, xAxisGeometricHashing] < keypointCoordinates[:, keypointBindex, xAxisGeometricHashing])
-		keypointCoordinates = flipMatrixAlongDimUsingMask(keypointCoordinates, maskFlipY, 1, yAxisGeometricHashing)
-		meshCoordinates = flipMatrixAlongDimUsingMask(meshCoordinates, maskFlipX, 1, xAxisGeometricHashing)
-		return keypointCoordinates, meshCoordinates
-		
-	def flipMatrixAlongDimUsingMask(matrix, mask, dim, axis):
-		numPoints = matrix.shape[1]
-		maskExtended = mask.unsqueeze(1).repeat(1, numPoints)
-		matrixAxis = matrix[:, :, axis]
-		matrixAxisFlipped = pt.flip(matrixAxis, dims=[dim])
-		matrixAxisNew = pt.where(maskExtended, matrixAxisFlipped, matrixAxis)
-		matrix[:, :, axis] = matrixAxisNew
-		return matrix
+		return keypointCoordinates
 		
 else:
-	def reorderKeypoints(keypointCoordinates, meshCoordinates):
+	def reorderKeypoints(keypointCoordinates):
 
-		#reorder keypointCoordinates (ensure kp2.y is highest of all, and kp1.x is < kp2.x);
+		#reorder keypointCoordinates (ensure clockwise definition of keypoints within poly tri, and kp2.y is highest of all);
 		# kp2
 		#  \\
 		#   \_\
 		#  kp1 kp0  
 
+		keypointCoordinates = keypointClockwiseOrder(keypointCoordinates)
+		keypointCoordinates = keypointConditionalRotate(keypointCoordinates, 2, 0, 1, yAxisGeometricHashing)
+		keypointCoordinates = keypointConditionalRotate(keypointCoordinates, 2, 0, 1, yAxisGeometricHashing)
+
+		'''
 		keypointCoordinates = keypointConditionalSwap(keypointCoordinates, 2, 1, 1, yAxisGeometricHashing)
 		keypointCoordinates = keypointConditionalSwap(keypointCoordinates, 2, 0, 0, yAxisGeometricHashing)
 		keypointCoordinates = keypointConditionalSwap(keypointCoordinates, 0, 1, 1, xAxisGeometricHashing)
+		'''
+		
+		return keypointCoordinates
 
-		return keypointCoordinates, meshCoordinates
+	def keypointConditionalRotate(keypoints, keypointAindex, keypointBindex, keypointCindex, axis):
+	
+		#condition (no swap): keypointA[axis] > max(keypointB[axis], keypointC[axis]) (element wise test)
+		#else rotate keypoints clockwise (element wise)
+		#precondition: number of keypoints = 3
+		#precondition: number of geometric dimensions = 2
+				
+		keyPointA = keypoints[:, keypointAindex]
+		keyPointB = keypoints[:, keypointBindex]
+		keyPointC = keypoints[:, keypointCindex]
+		keyPointBCaxis = pt.stack((keyPointB[:, axis], keyPointC[:, axis]), dim=0)
+		keyPointMaxBCaxis = pt.max(keyPointBCaxis, dim=0).values
 
+		keyPointANewX = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointA[:, xAxisGeometricHashing], keyPointC[:, xAxisGeometricHashing])
+		keyPointANewY = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointA[:, yAxisGeometricHashing], keyPointC[:, yAxisGeometricHashing])
+		keyPointBNewX = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointB[:, xAxisGeometricHashing], keyPointA[:, xAxisGeometricHashing])
+		keyPointBNewY = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointB[:, yAxisGeometricHashing], keyPointA[:, yAxisGeometricHashing])
+		keyPointCNewX = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointC[:, xAxisGeometricHashing], keyPointB[:, xAxisGeometricHashing])
+		keyPointCNewY = pt.where(keyPointA[:, axis] > keyPointMaxBCaxis, keyPointC[:, yAxisGeometricHashing], keyPointB[:, yAxisGeometricHashing])
+		keyPointANew = pt.stack([keyPointANewX, keyPointANewY], dim=1)
+		keyPointBNew = pt.stack([keyPointBNewX, keyPointBNewY], dim=1)
+		keyPointCNew = pt.stack([keyPointCNewX, keyPointCNewY], dim=1)
+		keypoints[:, keypointAindex] = keyPointANew
+		keypoints[:, keypointBindex] = keyPointBNew
+		keypoints[:, keypointCindex] = keyPointCNew
+		
+		if(debugGeometricHashingParallel):	
+			print("keypointConditionalRotate(keypointCoordinates, keypointAindex=", keypointAindex, ", keypointBindex=",  keypointBindex, ", keypointCindex=", keypointCindex, ", axis=", axis)
+			print("keypoints[0] = ", keypoints[0])
+
+		return keypoints
+		
+	'''
 	def keypointConditionalSwap(keypoints, keypointAindex, keypointBindex, keypointCindex, axis):
 
 		#condition (no swap): keypointA[axis] > keypointB[axis] (element wise test)
@@ -144,6 +132,58 @@ else:
 			print("keypoints[0] = ", keypoints[0])
 
 		return keypoints
+	'''
+
+def keypointClockwiseOrder(keypoints):
+	#make kp2 the primary keypoint of the poly rotational permutation (kp0, kp1 will be swapped if necessary to ensure clockwise definition of keypoints within poly tri)
+	signedTriArea = -calculateSignedArea(keypoints)	#CHECKTHIS: -
+	#print("keypoints = ", keypoints)
+	#print("signedTriArea = ", signedTriArea)
+	keyPointA = keypoints[:, keypointAindex]
+	keyPointB = keypoints[:, keypointBindex]
+	keyPointC = keypoints[:, keypointCindex]
+	#Swap A and B to ensure clockwise order
+	keyPointANewX = pt.where(signedTriArea < 0, keyPointB[:, xAxisGeometricHashing], keyPointA[:, xAxisGeometricHashing])
+	keyPointANewY = pt.where(signedTriArea < 0, keyPointB[:, yAxisGeometricHashing], keyPointA[:, yAxisGeometricHashing])
+	keyPointBNewX = pt.where(signedTriArea < 0, keyPointA[:, xAxisGeometricHashing], keyPointB[:, xAxisGeometricHashing])
+	keyPointBNewY = pt.where(signedTriArea < 0, keyPointA[:, yAxisGeometricHashing], keyPointB[:, yAxisGeometricHashing])
+	keyPointANew = pt.stack([keyPointANewX, keyPointANewY], dim=1)
+	keyPointBNew = pt.stack([keyPointBNewX, keyPointBNewY], dim=1)
+	keyPointCNew = keyPointC
+	keypoints[:, keypointAindex] = keyPointANew
+	keypoints[:, keypointBindex] = keyPointBNew
+	keypoints[:, keypointCindex] = keyPointCNew
+	return keypoints
+
+def calculateSignedArea(keypoints):
+	BmAx = (keypoints[:, keypointBindex, xAxisGeometricHashing] - keypoints[:, keypointAindex, xAxisGeometricHashing])
+	CmAy = (keypoints[:, keypointCindex, yAxisGeometricHashing] - keypoints[:, keypointAindex, yAxisGeometricHashing])
+	CmAx = (keypoints[:, keypointCindex, xAxisGeometricHashing] - keypoints[:, keypointAindex, xAxisGeometricHashing])
+	BmAy = (keypoints[:, keypointBindex, yAxisGeometricHashing] - keypoints[:, keypointAindex, yAxisGeometricHashing])
+	signedTriArea = ((BmAx * CmAy) - (CmAx * BmAy))
+	#dim = [numberOfPolys]
+	return signedTriArea
+
+'''
+def keypointOrderFlip(keypointCoordinates, meshCoordinates):
+	#y axis will not work when kp2 point occurs midway along axis y
+	ABy = pt.stack((keypointCoordinates[:, keypointAindex, yAxisGeometricHashing], keypointCoordinates[:, keypointBindex, yAxisGeometricHashing]), dim=0)
+	ABmaxY = pt.max(ABy, dim=0).values
+	maskFlipY = (keypointCoordinates[:, keypointCindex, yAxisGeometricHashing] < ABmaxY)
+	maskFlipX = (keypointCoordinates[:, keypointAindex, xAxisGeometricHashing] < keypointCoordinates[:, keypointBindex, xAxisGeometricHashing])
+	keypointCoordinates = flipMatrixAlongDimUsingMask(keypointCoordinates, maskFlipY, 1, yAxisGeometricHashing)
+	meshCoordinates = flipMatrixAlongDimUsingMask(meshCoordinates, maskFlipX, 1, xAxisGeometricHashing)
+	return keypointCoordinates, meshCoordinates
+
+def flipMatrixAlongDimUsingMask(matrix, mask, dim, axis):
+	numPoints = matrix.shape[1]
+	maskExtended = mask.unsqueeze(1).repeat(1, numPoints)
+	matrixAxis = matrix[:, :, axis]
+	matrixAxisFlipped = pt.flip(matrixAxis, dims=[dim])
+	matrixAxisNew = pt.where(maskExtended, matrixAxisFlipped, matrixAxis)
+	matrix[:, :, axis] = matrixAxisNew
+	return matrix
+'''
 	
 	
 def padCoordinatesArrays(imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates):

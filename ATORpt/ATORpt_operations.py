@@ -59,7 +59,7 @@ def printPixelMap(posEmbeddings, tokens):
 		firstIndexInBatch = 0
 		printImageCoordinates(posEmbeddings[:, xAxisFeatureMap], posEmbeddings[:, yAxisFeatureMap], tokens[firstIndexInBatch])
 
-def printImageCoordinates(x, y, values, imageSize=700, permuteColorValues=True):
+def printImageCoordinates(x, y, values, imageSize=700, permuteColorValues=True, title=""):
 
 	figsize=(10, 10) # Width, Height in inches
 	
@@ -81,24 +81,20 @@ def printImageCoordinates(x, y, values, imageSize=700, permuteColorValues=True):
 		markerSize = 1
 	else:
 		markerSize = 0.01
-	#plt.subplot(121)
 	
 	plt.figure(figsize=figsize)
-
 	if(colorGraph):
 		plt.scatter(x=plotX, y=plotY, c=plotC, s=markerSize)
 	else:
 		plotZ = 1.0-plotZ	#invert such that MNIST number pixels are displayed as black (on white background)
 		plt.scatter(x=plotX, y=plotY, c=plotC, s=markerSize, vmin=0, vmax=1, cmap=cm.gray)	#assume input is normalised (0->1.0) #unnormalised (0 -> 255)
-
 	plt.xlim(-imageSize, imageSize)
 	plt.ylim(-imageSize, imageSize)
 	
 	fig = plt.gcf()
+	fig.canvas.manager.set_window_title(title)
 	fig.set_size_inches(figsize)  
-
 	plt.gca().set_aspect('equal', adjustable='box')
-
 	plt.show()	
 
 def printCoordinates(keypointCoordinates, meshCoordinates, meshValues, meshFaces, step=None, centreSnapshots=True):
@@ -148,7 +144,8 @@ def printKeypointsIndex(keypointCoordinates, index, step=None):
 	keypointCoordinatesCombined = keypointCoordinates[index, :, :]
 	#keypointValues = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
 	keypointValues = pt.tensor([[1, 0, 0], [0, 1, 0], [0, 0, 1]]) #kp0/A:Red, kp1/B:Green, kp2/C:Blue
-	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValues, imageSize=debugPlotImageSize, permuteColorValues=False)
+	title = "poly index: " + str(index)
+	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValues, imageSize=debugPlotImageSize, permuteColorValues=False, title=title)
 
 def printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, step=None, centreSnapshots=True):
 	if(step < 1):	#before final scale transform
@@ -160,7 +157,7 @@ def printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, st
 	else:
 		renderViewportSizeDebug = renderViewportSize	#*2 for debug checking only
 		renderImageSizeDebug = renderImageSize	#*2 for debug checking only
-	print("printPixelCoordinatesIndex: step=" + str(step))
+	#print("printPixelCoordinatesIndex: step=" + str(step))
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=centreSnapshots, index=index)
 
 

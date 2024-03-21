@@ -86,7 +86,7 @@ def generateATORpatches(imagePaths, train):
 	if(snapshotRenderer == "pytorch3D"):
 		meshCoordinates = snapshotMeshCoordinates
 	
-	keypointCoordinates, meshCoordinates = ATORpt_PTkeypoints.reorderKeypoints(keypointCoordinates, meshCoordinates)
+	keypointCoordinates = ATORpt_PTkeypoints.reorderKeypoints(keypointCoordinates)
 	transformedMeshCoordinates = ATORpt_PTgeometricHashing.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
 	print("geoHashing complete")
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=False)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False
