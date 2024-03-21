@@ -49,7 +49,11 @@ def generateATORpatches(imagePaths, train):
 			imageKeypointCoordinatesZ = ATORpt_PTkeypoints.performKeypointDetection(imageFeatureCoordinatesZ)
 			imageKeypointCoordinatesZList.append(imageKeypointCoordinatesZ)
 		imageKeypointCoordinates = pt.cat(imageKeypointCoordinatesZList, dim=0)
-		imageKeypointCoordinates = ATORpt_PTkeypoints.cropCoordinatesArray(imageKeypointCoordinates)	#crop imageKeypointCoordinates to ATORmaxNumberOfPolys
+		if(fullRotationalInvariance):
+			imageKeypointCoordinates = ATORpt_PTkeypoints.cropCoordinatesArray(imageKeypointCoordinates, ATORmaxNumberOfPolys//snapshotNumberOfKeypoints)
+			imageKeypointCoordinates = ATORpt_PTkeypoints.generateKeypointPermutations(imageKeypointCoordinates)
+		else:
+			imageKeypointCoordinates = ATORpt_PTkeypoints.cropCoordinatesArray(imageKeypointCoordinates, ATORmaxNumberOfPolys)
 		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTmesh.getSnapshotMeshCoordinates(imageKeypointCoordinates, imagePath)
 		imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTkeypoints.padCoordinatesArrays(imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates)	#pad coordinates to ATORmaxNumberOfPolys
 
@@ -82,7 +86,7 @@ def generateATORpatches(imagePaths, train):
 	if(snapshotRenderer == "pytorch3D"):
 		meshCoordinates = snapshotMeshCoordinates
 	
-	keypointCoordinates = ATORpt_PTkeypoints.reorderKeypoints(keypointCoordinates)
+	keypointCoordinates, meshCoordinates = ATORpt_PTkeypoints.reorderKeypoints(keypointCoordinates, meshCoordinates)
 	transformedMeshCoordinates = ATORpt_PTgeometricHashing.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
 	print("geoHashing complete")
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=False)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False

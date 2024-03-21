@@ -24,15 +24,13 @@ from ATORpt_globalDefs import *
 import ATORpt_operations
 
 def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=None, meshFaces=None):
-	#transformedMeshCoordinates shape: [numberCoordinates, numberOfGeometricDimensions], i.e. [yCoordinate, xCoordinate] for each pixel in transformedMeshCoordinates
-	#debugGeometricHashingParallel requires meshValues and transformedMeshCoordinates=snapshotPixelCoordinates (not snapshotPixelCoordinates)
+	#keypointCoordinates shape: [numberPolys, numberCoordinatesInSnapshot, numberOfGeometricDimensions], i.e. [yCoordinate, xCoordinate] for each pixel in meshCoordinates
+	#meshCoordinates shape: [numberPolys, snapshotNumberOfKeypoints, numberOfGeometricDimensions], i.e. [yCoordinate, xCoordinate] for each keypoint in poly
 	
 	print("start performGeometricHashingParallel")
 
 	#based on https://patentscope.wipo.int/search/en/detail.jsf?docId=WO2011088497 Fig 30->35
-	#see ATORmethod2DOD:transformObjectData2DOD for unvectorised method
-
-	#implementation limitation: assume input image is roughly upright; only perform 1 geometric hashing transformation (not geometricHashingNumKeypoints transformations, based on every possible permutation of keypoints)
+	#see ATORmethod2DOD:transformObjectData2DOD for unvectorised (ie serial processing) method
 	
 	#transformedKeypointCoordinates should equal transformedKeypointCoordinatesExpected (transformedObjectTriangleCoordinatesExpected) at end of transformation
 	transformedKeypointCoordinatesExpected = pt.zeros([3, 2]).to(device)
@@ -181,15 +179,6 @@ def applyShear2D(meshCoordinates, shearMatrix):
 def calculateAngleOfVector(vec1):
 	#radians
 	angle = pt.atan2(vec1[:, 1], vec1[:, 0])
-	'''
-	#calculate angle of vector relative to positive x axis
-	batchSize = vec1.shape[0]
-	if(xAxisGeometricHashing == 0):
-		vec2 = pt.unsqueeze(pt.tensor([1.0, 0.0]), 0).repeat(batchSize, 1)
-	else:
-		vec2 = pt.unsqueeze(pt.tensor([0.0, 1.0]), 0).repeat(batchSize, 1)
-	angle = calculateAngleBetweenVectors2D(vec1, vec2)
-	'''
 	return angle
 
 def calculateAngleBetweenVectors2D(vec1, vec2):

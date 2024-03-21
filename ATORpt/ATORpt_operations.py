@@ -59,14 +59,15 @@ def printPixelMap(posEmbeddings, tokens):
 		firstIndexInBatch = 0
 		printImageCoordinates(posEmbeddings[:, xAxisFeatureMap], posEmbeddings[:, yAxisFeatureMap], tokens[firstIndexInBatch])
 
-def printImageCoordinates(x, y, values, imageSize=700):
+def printImageCoordinates(x, y, values, imageSize=700, permuteColorValues=True):
 
 	figsize=(10, 10) # Width, Height in inches
 	
 	colorGraph = False
 	if(len(values.shape) > 1):
 		colorGraph = True
-		values = values.permute(1, 0)
+		if(permuteColorValues):
+			values = values.permute(1, 0)
 		
 	#print("x = ", x)
 	#print("y = ", y)
@@ -74,7 +75,7 @@ def printImageCoordinates(x, y, values, imageSize=700):
 
 	plotX = x.cpu().detach().numpy()
 	plotY = y.cpu().detach().numpy()
-	plotZ = values.cpu().detach().numpy()
+	plotC = values.cpu().detach().numpy()
 
 	if(debugGeometricHashingParallelLargeMarker):
 		markerSize = 1
@@ -85,10 +86,10 @@ def printImageCoordinates(x, y, values, imageSize=700):
 	plt.figure(figsize=figsize)
 
 	if(colorGraph):
-		plt.scatter(x=plotX, y=plotY, c=plotZ, s=markerSize)
+		plt.scatter(x=plotX, y=plotY, c=plotC, s=markerSize)
 	else:
 		plotZ = 1.0-plotZ	#invert such that MNIST number pixels are displayed as black (on white background)
-		plt.scatter(x=plotX, y=plotY, c=plotZ, s=markerSize, vmin=0, vmax=1, cmap=cm.gray)	#assume input is normalised (0->1.0) #unnormalised (0 -> 255)
+		plt.scatter(x=plotX, y=plotY, c=plotC, s=markerSize, vmin=0, vmax=1, cmap=cm.gray)	#assume input is normalised (0->1.0) #unnormalised (0 -> 255)
 
 	plt.xlim(-imageSize, imageSize)
 	plt.ylim(-imageSize, imageSize)
@@ -99,7 +100,6 @@ def printImageCoordinates(x, y, values, imageSize=700):
 	plt.gca().set_aspect('equal', adjustable='box')
 
 	plt.show()	
-	
 
 def printCoordinates(keypointCoordinates, meshCoordinates, meshValues, meshFaces, step=None, centreSnapshots=True):
 	if(debugGeometricHashingParallelFinal):
@@ -146,8 +146,9 @@ def printKeypointsIndex(keypointCoordinates, index, step=None):
 	print("printKeypointsIndex: step=" + str(step))
 	print("keypointCoordinates[index] = ", keypointCoordinates[index])
 	keypointCoordinatesCombined = keypointCoordinates[index, :, :]
-	keypointValuesCombined = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
-	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValuesCombined[:], debugPlotImageSize)
+	#keypointValues = pt.ones(keypointCoordinatesCombined[:, xAxisGeometricHashing].shape)
+	keypointValues = pt.tensor([[1, 0, 0], [0, 1, 0], [0, 0, 1]]) #kp0/A:Red, kp1/B:Green, kp2/C:Blue
+	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValues, imageSize=debugPlotImageSize, permuteColorValues=False)
 
 def printPixelCoordinatesIndex(meshCoordinates, meshValues, meshFaces, index, step=None, centreSnapshots=True):
 	if(step < 1):	#before final scale transform

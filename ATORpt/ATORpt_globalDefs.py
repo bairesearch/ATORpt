@@ -177,6 +177,12 @@ else:
 	inputfolder = "/media/rich/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
 	numberOfGeometricDimensions = 2	#2D object data (2DOD)
 	if(useATORPTparallel):		
+		fullRotationalInvariance = False	#optional	#requires 3x GPU ram #create keypoint sets for every poly orientation (x3) - else assume input image is roughly upright; only perform 1 geometric hashing transformation (not geometricHashingNumKeypoints transformations, based on every possible permutation of keypoints)
+		if(fullRotationalInvariance):
+			assert (VITmaxNumberATORpatches%snapshotNumberOfKeypoints == 0)	#ensure VITmaxNumberATORpatches is divisible by snapshotNumberOfKeypoints
+		keypointAindex = 0
+		keypointBindex = 1
+		keypointCindex = 2
 		ATORmaxNumImages = 10	#max 10 on 12GB GPU
 		ATORmaxNumberATORpatchesAllImages = VITmaxNumberATORpatches*ATORmaxNumImages	#max 9000 on 12GB GPU
 		ATORmaxNumberOfPolys = VITmaxNumberATORpatches	#max number of normalised patches per image
