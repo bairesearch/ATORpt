@@ -27,9 +27,9 @@ from ATORpt_globalDefs import *
 
 def featureDetection(image, zoomIndex):
 	zoom = getZoomValue(zoomIndex)
-	imageFeatureCoordinates = []
+	imageFeatureCoordinates = pt.zeros([0, 2])
 	if(useFeatureDetectionCorners):
-		imageFeatureCoordinates = featureDetectionCornerOpenCVHarris(image)
+		imageFeatureCoordinates = pt.cat((imageFeatureCoordinates, featureDetectionCornerOpenCVHarris(image)), dim=0)
 		#imageFeatureCoordinates = pt.cat((imageFeatureCoordinates, featureDetectionCornerOpenCVShiTomasi(image)), dim=0)
 	if(useFeatureDetectionCentroids):
 		imageFeatureCoordinates = pt.cat((imageFeatureCoordinates, featureDetectionCentroidFBSegmentAnything(image)), dim=0)
@@ -85,15 +85,6 @@ def printFeaturesArraySubpixel(corners, image):
 	cv2.waitKey(0)
 	cv2.destroyAllWindows()
 
-def printFeatureListSubpixel(cornerFeatureList, image):
-	for corner in cornerFeatureList:
-		x = int(corner[xAxisFeatureMap])
-		y = int(corner[yAxisFeatureMap])
-		image[y, x] = 255
-	cv2.imshow('Corner Detection', image)
-	cv2.waitKey(0)
-	cv2.destroyAllWindows()
-	
 def extractFeatureCoordsFromFeatureMap(dst, image):
 	dilation_size = 4
 	kernel = np.ones((dilation_size, dilation_size), np.uint8)  # Create a kernel for dilation
@@ -133,17 +124,27 @@ def featureDetectionCentroidFBSegmentAnything(image):
 		centroid = calculateMaskCentroid(segmentationMask['segmentation'])
 		centroidFeatureList.append(centroid)
 	centroidFeatures = pt.tensor(centroidFeatureList, dtype=pt.float32)
+	if(debugFeatureDetection):
+		printFeatureListSubpixel(centroidFeatureList, image)
 	print("centroidFeatures len = ", centroidFeatures.shape[0])
 	return centroidFeatures
 
 def calculateMaskCentroid(mask):
-	m00 = np.sum(mask)
-	m10 = np.sum(np.arange(mask.shape[0])[:, None] * mask)
-	m01 = np.sum(np.arange(mask.shape[1])[None, :] * mask)
-	if m00 == 0:
-		centroid_x, centroid_y = 0, 0
-	else:
-		centroid_x = m10 / m00
-		centroid_y = m01 / m00
+	y_indices, x_indices = np.indices(mask.shape)
+	masked_x_indices = x_indices[mask]
+	masked_y_indices = y_indices[mask]
+	centroid_x = np.mean(masked_x_indices)
+	centroid_y = np.mean(masked_y_indices)
 	centroid = (centroid_x, centroid_y)	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
 	return centroid
+
+def printFeatureListSubpixel(cornerFeatureList, image):
+	image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+	for corner in cornerFeatureList:
+		x = int(corner[xAxisFeatureMap])
+		y = int(corner[yAxisFeatureMap])
+		image[y, x] = 255
+	cv2.imshow('Corner Detection', image)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows()
+	
