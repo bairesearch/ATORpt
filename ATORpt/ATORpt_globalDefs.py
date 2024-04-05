@@ -37,12 +37,18 @@ debugGeometricHashingParallelLargeMarker = True
 debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of untransformed snapshots) to debug the image coordinates generation for geometric hashing/rendering
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
+debugVITmaxNumberATORpatches = 60	#90	#30
 
 userName = 'systemusername'	#default: systemusername
 if(os.path.isdir('user')):
 	from user.user_globalDefs import *
 	
 #ATOR implementation select:
+support3DOD = False	#incomplete
+if(support3DOD):
+	generate3DODfrom2DOD = False	#generate 3DOD (3d object data) from image before executing ATOR (FUTURE: add support for parallax resolvable depth constructed meshes)
+	#generate3DODfromParallax = False	#not yet coded
+	
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
 	useATORPTparallel = True
@@ -138,7 +144,7 @@ if(useEndToEndNeuralModel):
 					if(useGeometricHashingHardcoded):
 						useGeometricHashingHardcodedParallelisedDeformation = False	#apply multiple rotation matrices in parallel
 			useGeometricHashingKeypointNormalisation = True
-		numberOfGeometricDimensions = 2	#2D object data (2DOD)
+		numberOfGeometricDimensions2DOD = 2	#2D object data (2DOD)
 	else:
 		useMultKeys = True   #experimental (modify transformer to support geometric hashing operations)
 		if(useMultKeys):
@@ -163,9 +169,9 @@ else:
 		batchSize = 4 #2, 4, 8
 	normaliseSnapshotLength = 30
 	numberOfZoomLevels = 3
-	snapshotNumberOfKeypoints = 3	#tri features
+	snapshotNumberOfKeypoints = 3	#tri features	#numberCoordinatesInSnapshot
 	if(debugGeometricHashingParallel or debugSnapshotRender or debugGeometricHashingParallelFinal or debugSnapshotRenderFinal):
-		VITmaxNumberATORpatches = 60	#90	#30
+		VITmaxNumberATORpatches = debugVITmaxNumberATORpatches
 	else: 
 		VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
 	VITnumberOfPatches = VITmaxNumberATORpatches
@@ -180,7 +186,8 @@ else:
 	VITnumberOfLayers = 3
 	VITnumberOfClasses = databaseNumberOfClasses
 	inputfolder = "/media/" + userName + "/large/source/ANNpython/ATORpt/ATORpt/images"	#location of ATORrules.xml, images
-	numberOfGeometricDimensions = 2	#2D object data (2DOD)
+	numberOfGeometricDimensions2DOD = 2	#2D object data (2DOD)
+	numberOfGeometricDimensions3DOD = 3	#3D object data (3DOD)
 	if(useATORPTparallel):		
 		fullRotationalInvariance = False	#optional	#requires 3x GPU ram #create keypoint sets for every poly orientation (x3) - else assume input image is roughly upright; only perform 1 geometric hashing transformation (not geometricHashingNumKeypoints transformations, based on every possible permutation of keypoints)
 		if(fullRotationalInvariance):
@@ -271,8 +278,10 @@ else:
 
 xAxisATORmodel = 0	#ATOR model assumes x,y coordinates
 yAxisATORmodel = 1
+zAxisATORmodel = 2
 xAxisGeometricHashing = xAxisATORmodel	#geometric hashing assumes x,y coordinates (used by renderer also)
 yAxisGeometricHashing = yAxisATORmodel
+zAxisGeometricHashing = zAxisATORmodel
 xAxisFeatureMap = xAxisATORmodel	#ATOR feature map assumes x,y coordinates
 yAxisFeatureMap = yAxisATORmodel
 xAxisViT = 1	#ViT assumes y,x patch coordinates (standard opencv/TF image coordinates convention also)

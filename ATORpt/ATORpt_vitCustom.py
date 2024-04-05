@@ -72,7 +72,7 @@ class ViTClass(nn.Module):
 		if(usePositionalEmbeddings):
 			if(useParallelisedGeometricHashing):
 				#add positional embedding for classification token (0, 0)
-				posEmbeddingClassificationToken = pt.unsqueeze(pt.unsqueeze(pt.zeros(numberOfGeometricDimensions), 0), 0).repeat(batchSize, 1, 1)
+				posEmbeddingClassificationToken = pt.unsqueeze(pt.unsqueeze(pt.zeros(numberOfGeometricDimensions2DOD), 0), 0).repeat(batchSize, 1, 1)
 				posEmbeddingsAbsoluteGeoNormalised = pt.cat([posEmbeddingClassificationToken, posEmbeddingsAbsoluteGeoNormalised], dim=1)
 				tokensAndPosEmbeddings = pt.cat([tokens, posEmbeddingsAbsoluteGeoNormalised], dim=2)
 				tokens = tokensAndPosEmbeddings

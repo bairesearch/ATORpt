@@ -150,7 +150,7 @@ def uncreateLinearPatches(sequences, numberOfPatches, numberOfGeoDimensions):
 	for imageIndex, sequence in enumerate(sequences):
 		for i in range(numberOfPatches):	#y axis	[yAxisViT]
 			for j in range(numberOfPatches):	#x axis	[xAxisViT]
-				for k in range(numberOfGeometricDimensions):
+				for k in range(numberOfGeometricDimensions2DOD):
 					images[imageIndex, i, j, k] = sequence[i*numberOfPatches + j, k]
 
 	return images

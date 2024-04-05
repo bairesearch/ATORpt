@@ -1,4 +1,4 @@
-"""ATORpt_PTgeometricHashing.py
+"""ATORpt_PTgeometricHashing2DOD.py
 
 # Author:
 Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
@@ -13,7 +13,7 @@ See ATORpt_main.py
 See ATORpt_main.py
 
 # Description:
-ATORpt PT geometric Hashing - parallel processing of ATOR geometric hashing
+ATORpt PT geometric Hashing 2DOD - parallel processing of ATOR geometric hashing for 2D object data
 
 """
 
@@ -24,8 +24,9 @@ from ATORpt_globalDefs import *
 import ATORpt_operations
 
 def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=None, meshFaces=None):
-	#keypointCoordinates shape: [numberPolys, numberCoordinatesInSnapshot, numberOfGeometricDimensions], i.e. [yCoordinate, xCoordinate] for each pixel in meshCoordinates
-	#meshCoordinates shape: [numberPolys, snapshotNumberOfKeypoints, numberOfGeometricDimensions], i.e. [yCoordinate, xCoordinate] for each keypoint in poly
+	#keypointCoordinates shape: [numberPolys, snapshotNumberOfKeypoints, numberOfGeometricDimensions2DOD], i.e. [yCoordinate, xCoordinate] for each pixel in meshCoordinates
+	#meshCoordinates shape: [numberPolys, numberCoordinatesInSnapshot, numberOfGeometricDimensions2DOD], i.e. [yCoordinate, xCoordinate] for each keypoint in poly
+	use3DOD = False
 	
 	print("start performGeometricHashingParallel")
 
@@ -43,9 +44,9 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	
 	transformedMeshCoordinates = meshCoordinates
 	transformedKeypointCoordinates = keypointCoordinates	#retain original for calculations	#.copy()
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=0)	#will be out of range of render view port
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=0)	#will be out of range of render view port
 	
-	#ATORpt_operations.printCoordinates(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=0, centreSnapshots=False)
+	#ATORpt_operations.printCoordinates(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=0, centreSnapshots=False)
 	
 	#keypointCoordinates;
 	# kp2
@@ -61,7 +62,7 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	keypointsTriBaseCentre = pt.add(keypointCoordinates[:, 0], keypointCoordinates[:, 1])/2.0
 	transformedMeshCoordinates = pt.subtract(transformedMeshCoordinates, keypointsTriBaseCentre.unsqueeze(1))
 	transformedKeypointCoordinates = pt.subtract(transformedKeypointCoordinates, keypointsTriBaseCentre.unsqueeze(1))
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=1)
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=1)
 	
 	#step 2 (rotate - wrt keypointCoordinates [0, 1]):
 	#2ia. rotate object data such that the object triangle side is parallel with X axis [and 2ii. third apex is above the lowest 2 apexes]
@@ -72,7 +73,7 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	rotationMatrix = createRotationMatrix2Dvec(keypointsTriBaseVec)
 	transformedMeshCoordinates = applyRotation2D(transformedMeshCoordinates, rotationMatrix)
 	transformedKeypointCoordinates = applyRotation2D(transformedKeypointCoordinates, rotationMatrix)
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=2)
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=2)
 	
 	#step 3 (scale x - wrt object triangle [0, 1]):   
 	#1a. Scale object data such that the object triangle side is of same length as a predefined side of a predefined triangle
@@ -80,7 +81,7 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	keypointsTriBaseSizeX = calculateDistance(transformedKeypointCoordinates[:, 0], transformedKeypointCoordinates[:, 1]) / normalisedObjectTriangleBaseLength	#or calculateDistance(transformedMeshCoordinates[:, 0], transformedMeshCoordinates[:, 1])
 	transformedMeshCoordinates[:, :, xAxisGeometricHashing] = pt.divide(transformedMeshCoordinates[:, :, xAxisGeometricHashing] , keypointsTriBaseSizeX.unsqueeze(1))
 	transformedKeypointCoordinates[:, :, xAxisGeometricHashing] = pt.divide(transformedKeypointCoordinates[:, :, xAxisGeometricHashing] , keypointsTriBaseSizeX.unsqueeze(1))
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=3)
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=3)
 
 	#step 4 (scale y - wrt object triangle [1y, 2y]):
 	#3a. Scale object data on Y axis such that the third apex is the same perpendicular distance away from the side as is the case for the predefined triangle.
@@ -89,7 +90,7 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	keypointsTriHeightSize = calculateDistance(transformedKeypointCoordinates[:, 2], transformedKeypointsTriBaseCentre) / normalisedObjectTriangleHeight	#or calculateDistance(transformedMeshCoordinates[:, 2], keypointsTriBaseCentre
 	transformedMeshCoordinates[:, :, yAxisGeometricHashing] = pt.divide(transformedMeshCoordinates[:, :, yAxisGeometricHashing], keypointsTriHeightSize.unsqueeze(1))
 	transformedKeypointCoordinates[:, :, yAxisGeometricHashing] = pt.divide(transformedKeypointCoordinates[:, :, yAxisGeometricHashing], keypointsTriHeightSize.unsqueeze(1))
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=4)
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=4)
 	
 	#step 5 (shear):
 	#4a. shear object data along X axis such that object triangle apexes are coincident with predefined triangle apexes
@@ -98,9 +99,9 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	shearMatrix = createShearMatrix2Dvec(shearScalar, horizontalAxis=True)
 	transformedMeshCoordinates = applyShear2D(transformedMeshCoordinates, shearMatrix)
 	transformedKeypointCoordinates = applyShear2D(transformedKeypointCoordinates, shearMatrix)
-	ATORpt_operations.printCoordinatesIndex(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=5)
+	ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=5)
 	
-	ATORpt_operations.printCoordinates(transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=5, centreSnapshots=False)
+	ATORpt_operations.printCoordinates(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, step=5, centreSnapshots=False)
 
 	#print("transformedKeypointCoordinatesExpected = ", transformedKeypointCoordinatesExpected)
 	

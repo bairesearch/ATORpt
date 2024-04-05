@@ -71,7 +71,7 @@ def performKeypointDetection(self, featureMapN, posEmbeddings, posEmbeddingsNorm
 
 		keypointsIndicesFlattened = pt.reshape(keypointsIndices, (keypointsIndices.shape[0]*keypointsIndices.shape[1],))  #or flatten	#keypointsIndicesFlattened = keypointsIndices.flatten()
 		keypointsPosEmbeddingsFlattened = posEmbeddingsNormalised[keypointsIndicesFlattened]
-		keypointsPosEmbeddings = pt.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions))  #CHECKTHIS
+		keypointsPosEmbeddings = pt.reshape(keypointsPosEmbeddingsFlattened, (keypointsIndices.shape[0], keypointsIndices.shape[1], self.numberOfGeometricDimensions2DOD))  #CHECKTHIS
 		geometricHashingKeypointsPosEmbeddings = keypointsPosEmbeddings
 
 	return geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings

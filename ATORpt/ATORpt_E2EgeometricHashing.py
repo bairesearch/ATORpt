@@ -25,7 +25,7 @@ import torchvision.transforms as T
 from ATORpt_globalDefs import *
 import ATORpt_E2Eoperations
 import ATORpt_E2Ekeypoints
-import ATORpt_PTgeometricHashing
+import ATORpt_PTgeometricHashing2DOD
 import ATORpt_operations
 
  
@@ -39,8 +39,8 @@ class GeometricHashingClass(nn.Module):
 		  
 		self.cosSim = pt.nn.CosineSimilarity(dim=1)  #CHECKTHIS: dim=1
 
-		self.numberOfGeometricDimensions = numberOfGeometricDimensions	#2D object data (2DOD)
-		self.geometricHashingNumKeypoints = self.numberOfGeometricDimensions+1	#2DOD: 3: 3DOD: 4   #number of features to use to perform geometric hashing (depends on input object data dimensions; 2DOD/3DOD)
+		self.numberOfGeometricDimensions2DOD = numberOfGeometricDimensions2DOD	#2D object data (2DOD)
+		self.geometricHashingNumKeypoints = self.numberOfGeometricDimensions2DOD+1	#2DOD: 3: 3DOD: 4   #number of features to use to perform geometric hashing (depends on input object data dimensions; 2DOD/3DOD)
 		self.geometricHashingNumPixels = 1  #1 pixel (token) will be transformed
 		
 		if(useGeometricHashingAMANN):
@@ -54,15 +54,15 @@ class GeometricHashingClass(nn.Module):
 				inputLayerNumTokens = ATORpt_E2Eoperations.getInputLayerNumTokens(numberOfPatches)
 				self.numberOfAttentionDimensions = 1
 				self.geometricHashingNumInputs = inputLayerNumTokens + 1
-				self.geometricHashingInputDim = (self.geometricHashingNumInputs*(self.numberOfGeometricDimensions+self.numberOfAttentionDimensions))
+				self.geometricHashingInputDim = (self.geometricHashingNumInputs*(self.numberOfGeometricDimensions2DOD+self.numberOfAttentionDimensions))
 			else:  
 				self.geometricHashingNumInputs = self.geometricHashingNumKeypoints+self.geometricHashingNumPixels
-				self.geometricHashingInputDim = self.geometricHashingNumInputs * self.numberOfGeometricDimensions
+				self.geometricHashingInputDim = self.geometricHashingNumInputs * self.numberOfGeometricDimensions2DOD
 	 
 			linearAdditiveMultiplicativeList = []
 			for i in range(self.geometricHashingNumberLayers):
 				linearAdditiveMultiplicativeList.append(ATORpt_E2EAMANN.LayerAdditiveMultiplicativeClass(self.geometricHashingInputDim, self.geometricHashingInputDim, useMultiplicativeUnits=True))
-			linearAdditiveMultiplicativeList.append(ATORpt_E2EAMANN.LayerAdditiveMultiplicativeClass(self.geometricHashingInputDim, self.numberOfGeometricDimensions, useMultiplicativeUnits=False))
+			linearAdditiveMultiplicativeList.append(ATORpt_E2EAMANN.LayerAdditiveMultiplicativeClass(self.geometricHashingInputDim, self.numberOfGeometricDimensions2DOD, useMultiplicativeUnits=False))
 			self.linearAdditiveMultiplicativeModuleList = nn.ModuleList(linearAdditiveMultiplicativeList)
 
 	def forward(self, images, posEmbeddings, sequences, featureMap):
@@ -103,7 +103,7 @@ class GeometricHashingClass(nn.Module):
 				print("\tgeometricHashingKeypointsPosEmbeddings.shape = ", geometricHashingKeypointsPosEmbeddings.shape)
 				print("\tgeometricHashingPixelPosEmbeddings.shape = ", geometricHashingPixelPosEmbeddings.shape)
 				print("TODO: need to ensure that geometricHashingKeypointsPosEmbeddings and geometricHashingPixelPosEmbeddings are in format xAxisGeometricHashing,yAxisGeometricHashing")
-				posEmbeddingsAbsoluteGeoNormalisedN = ATORpt_PTgeometricHashing.performGeometricHashingParallel(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings, pixelValuesN)
+				posEmbeddingsAbsoluteGeoNormalisedN = ATORpt_PTgeometricHashing2DOD.performGeometricHashingParallel(geometricHashingKeypointsPosEmbeddings, geometricHashingPixelPosEmbeddings, pixelValuesN)
 
 			posEmbeddingsGeometricNormalisedList.append(posEmbeddingsAbsoluteGeoNormalisedN)
 

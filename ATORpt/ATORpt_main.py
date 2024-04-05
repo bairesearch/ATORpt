@@ -122,7 +122,7 @@ else:
 		if(useClassificationVIT):
 			numberOfInputDimensionsVIT = ATORpt_E2Eoperations.getInputDim(inputShape, patchSizeVITlocal)
 			if(useParallelisedGeometricHashing):
-				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions   #mandatory (currently required for ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
+				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions2DOD   #mandatory (currently required for ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
 			else:
 				numberOfHiddenDimensionsVIT = 20   #arbitrary
 			numberOfHeadsVIT = 1	#requirement; numberOfHiddenDimensionsVIT % numberOfHeadsVIT == 0
@@ -186,7 +186,7 @@ if(useStandardVIT):
 					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
 					transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
 				elif(useATORPTparallel):
-					transformedPatches = ATORpt_PTATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
+					transformedPatches = ATORpt_PTATOR.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
 				
 				artificialInputImages = generateArtificialInputImages(transformedPatches)	
 				print("labels = ", labels)

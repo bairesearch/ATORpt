@@ -34,16 +34,17 @@ if(snapshotRenderer == "pytorch3D"):
 	from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
 	from pytorch3d.renderer import PointLights, Materials
 
-def resamplePixelCoordinates(transformedSnapshotPixelCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=False, index=None):
+def resamplePixelCoordinates(use3DOD, transformedSnapshotPixelCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=False, index=None):
 	if(snapshotRenderer == "pytorch3D"):
-		transformedPatches = renderSnapshotsPytorch3D(transformedSnapshotPixelCoordinates, snapshotMeshFaces, snapshotMeshValues, renderViewportSize, renderImageSize, centreSnapshots, index)
+		transformedPatches = renderSnapshotsPytorch3D(use3DOD, transformedSnapshotPixelCoordinates, snapshotMeshFaces, snapshotMeshValues, renderViewportSize, renderImageSize, centreSnapshots, index)
 	return transformedPatches
 	
-def renderSnapshotsPytorch3D(verts, faces, colors, renderViewportSize, renderImageSize, centreSnapshots=False, index=None):			
-	#add Z dimension to coordinates
-	vertsZ = pt.ones((verts.shape[0], verts.shape[1], 1)).to(device)
-	vertsZ = vertsZ*snapshotRenderZdimVal
-	verts = pt.cat((verts, vertsZ), dim=2)
+def renderSnapshotsPytorch3D(use3DOD, verts, faces, colors, renderViewportSize, renderImageSize, centreSnapshots=False, index=None):
+	if(not use3DOD):
+		#add Z dimension to coordinates
+		vertsZ = pt.ones((verts.shape[0], verts.shape[1], 1)).to(device)
+		vertsZ = vertsZ*snapshotRenderZdimVal
+		verts = pt.cat((verts, vertsZ), dim=2)	#zAxisGeometricHashing
 	
 	textures = TexturesVertex(verts_features=colors.to(device))		#textures = Textures(verts_rgb=colors.to(device)) 
 	meshes = Meshes(verts=verts, faces=faces, textures=textures)
