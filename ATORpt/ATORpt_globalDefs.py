@@ -27,6 +27,7 @@ pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
 #debug vars:
+debugSingleZoomLevel = False
 debugProcessSingleImage = False
 debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
 debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the renderer
@@ -46,8 +47,8 @@ if(os.path.isdir('user')):
 #ATOR implementation select:
 support3DOD = False	#incomplete
 if(support3DOD):
-	generate3DODfrom2DOD = False	#generate 3DOD (3d object data) from image before executing ATOR (FUTURE: add support for parallax resolvable depth constructed meshes)
-	#generate3DODfromParallax = False	#not yet coded
+	generate3DODfrom2DOD = True	#generate 3DOD (3d object data) from image before executing ATOR
+	#generate3DODfromParallax = False	#not yet coded	#parallax resolvable depth (PRD-ATOR)
 	
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -168,7 +169,10 @@ else:
 	else:
 		batchSize = 4 #2, 4, 8
 	normaliseSnapshotLength = 30
-	numberOfZoomLevels = 3
+	if(debugSingleZoomLevel):
+		numberOfZoomLevels = 1
+	else:
+		numberOfZoomLevels = 3
 	snapshotNumberOfKeypoints = 3	#tri features	#numberCoordinatesInSnapshot
 	if(debugGeometricHashingParallel or debugSnapshotRender or debugGeometricHashingParallelFinal or debugSnapshotRenderFinal):
 		VITmaxNumberATORpatches = debugVITmaxNumberATORpatches
@@ -298,4 +302,5 @@ if(pt.cuda.is_available()):
 	device = pt.device("cuda")
 else:
 	device = pt.device("cpu")
+devicePreprocessing = pt.device("cuda")	#orig: pt.device("cpu")  #image preprocessing transformation operations are currently performed on GPU/CPU
 

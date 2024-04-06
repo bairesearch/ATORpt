@@ -316,9 +316,12 @@ def mid(array, arrayMin, arrayMax, dim=1):
 	return result
 
 def addZcoordinates(imageKeypointCoordinates, imageDepth):
+	print("imageKeypointCoordinates.device = ", imageKeypointCoordinates.device)
+	print("imageDepth.device = ", imageDepth.device)
+	imageDepth = imageDepth.to(device)
 	imageKeypointCoordinatesInt = pt.round(imageKeypointCoordinates).long()
 	imageKeypointCoordinatesZ = imageDepth[imageKeypointCoordinatesInt[:, :, xAxisImages], imageKeypointCoordinatesInt[:, :, yAxisImages]]
-	imageKeypointCoordinates = pt.cat((imageKeypointCoordinates, imageKeypointCoordinatesZ), dim=2)	#zAxisGeometricHashing
+	imageKeypointCoordinates = pt.cat((imageKeypointCoordinates, imageKeypointCoordinatesZ.unsqueeze(2)), dim=2)	#zAxisGeometricHashing
 	return imageKeypointCoordinates
 
 	

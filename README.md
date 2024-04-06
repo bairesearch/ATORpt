@@ -74,7 +74,8 @@ pip install click
 pip install opencv-python opencv-contrib-python
 pip install kornia
 pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids only)
+pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 ```
 
 ### Execution
@@ -85,3 +86,15 @@ python3 ATORpt_main.py
 source activate pytorch3d
 python3 ATORpt_RFmain.py
 ```
+
+### Acknowledgements
+
+#### Segment Anything (useATORPTparallel:useFeatureDetectionCentroids)
+
+[Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., ... & Girshick, R. (2023). Segment anything. In Proceedings of the IEEE/CVF International Conference on Computer Vision (pp. 4015-4026).](https://arxiv.org/abs/2304.02643)
+
+#### MiDaS (useATORPTparallel:generate3DODfrom2DOD)
+
+[Ranftl, R., Lasinger, K., Hafner, D., Schindler, K., & Koltun, V. (2020). Towards robust monocular depth estimation: Mixing datasets for zero-shot cross-dataset transfer. IEEE transactions on pattern analysis and machine intelligence, 44(3), 1623-1637.](https://arxiv.org/abs/1907.01341)
+[Ranftl, R., Bochkovskiy, A., & Koltun, V. (2021). Vision transformers for dense prediction. In Proceedings of the IEEE/CVF international conference on computer vision (pp. 12179-12188).](https://arxiv.org/abs/2103.13413)
+

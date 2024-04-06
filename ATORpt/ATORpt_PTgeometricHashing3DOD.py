@@ -19,7 +19,8 @@ ATORpt PT geometric Hashing 3DOD - parallel processing of ATOR geometric hashing
 
 import torch as pt
 import math
-from pytorch3d.transforms import rotation_conversions
+#from pytorch3d.transforms import rotation_conversions
+from pytorch3d.renderer.cameras import look_at_view_transform
 
 from ATORpt_globalDefs import *
 import ATORpt_operations
@@ -42,19 +43,25 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	#apply hardcoded geometric hashing function;
 
 	#1. Perform All Rotations (X, Y, Z, such that object triangle side is parallel with x axis, and object triangle normal is parallel with z axis)
-	normalBeforeRotation = calculateNormalOfTri(keypointCoordinates[:, 0], keypointCoordinates[:, 1], keypointCoordinates[:, 3])
+	normalBeforeRotation = calculateNormalOfTri(keypointCoordinates[:, 0], keypointCoordinates[:, 1], keypointCoordinates[:, 2])
 	normalBeforeRotationNormalised = normaliseVector(normalBeforeRotation)
 	batchSize = keypointCoordinates.shape[0] 
-	eye = pt.zeros([batchSize, numberOfGeometricDimensions3DOD])
+	eye = pt.zeros([batchSize, numberOfGeometricDimensions3DOD], device=device)
 	at = normalBeforeRotationNormalised
 	up = subtractVectors(keypointCoordinates[:, 0], keypointCoordinates[:, 1])	#check this (use keypoints 1 and 2?)
-	R = rotation_conversions.look_at_rotation(eye, at, up)
-	transformedMeshCoordinates = pt.matmul(R, transformedMeshCoordinates.transpose(1, 2)).transpose(1, 2)
-	transformedKeypointCoordinates = pt.matmul(R, transformedKeypointCoordinates.transpose(1, 2)).transpose(1, 2)
+	
+	#R = rotation_conversions.look_at_rotation(eye, at, up)
+	#transformedMeshCoordinates = pt.matmul(R, transformedMeshCoordinates.transpose(1, 2)).transpose(1, 2)
+	#transformedKeypointCoordinates = pt.matmul(R, transformedKeypointCoordinates.transpose(1, 2)).transpose(1, 2)
+	R, T = look_at(eye=eye, at=at, up=up)	#look_at_view_transform
+	transformedMeshCoordinates = rotate_coordinates_batch(transformedMeshCoordinates, R)
+	transformedKeypointCoordinates = rotate_coordinates_batch(transformedKeypointCoordinates, R)
+	
 	#ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=1)
 
 	#3a. Translate the object data on all axes such that the mid point of the object triangle side passes through the Z axis coordinate 0.
 	translationVector = calculateMidPointBetweenTwoPoints(transformedKeypointCoordinates[:,0],transformedKeypointCoordinates[:,1])	#check this (use keypoints 1 and 2?)
+	translationVector = pt.unsqueeze(translationVector, 1)
 	transformedMeshCoordinates = transformedMeshCoordinates + translationVector
 	transformedKeypointCoordinates = transformedKeypointCoordinates + translationVector
 	#ATORpt_operations.printCoordinatesIndex(use3DOD, transformedKeypointCoordinates, transformedMeshCoordinates, meshValues, meshFaces, index=debugPolyIndex, step=2)
@@ -64,9 +71,25 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	return transformedMeshCoordinates
 
 
+def look_at(eye, at, up):
+	forward = at - eye
+	forward = forward / pt.norm(forward, dim=1, keepdim=True)
+	right = pt.cross(forward, up)
+	right = right / pt.norm(right, dim=1, keepdim=True)
+	up = pt.cross(right, forward)
+	R = pt.stack([right, up, -forward], dim=2)
+	T = -pt.matmul(R, eye.unsqueeze(2)).squeeze()
+	return R, T
+
+def rotate_coordinates_batch(coordinates, R):
+	coordinates_expanded = coordinates.unsqueeze(1)  # (batchSize, 1, numCoordinates, 3)
+	rotated_coordinates = pt.matmul(coordinates_expanded, R.unsqueeze(1))  # (batchSize, 1, numCoordinates, 3)
+	rotated_coordinates = rotated_coordinates.squeeze(1)  # (batchSize, numCoordinates, 3)
+	return rotated_coordinates
+
 def calculateNormalOfTri(pt1, pt2, pt3):
-	vec1 = subtractVectorsRT(pt2, pt1);
-	vec2 = subtractVectorsRT(pt3, pt1);
+	vec1 = subtractVectors(pt2, pt1)
+	vec2 = subtractVectors(pt3, pt1)
 	normal = calculateNormal(vec1, vec2)
 	return normal
 
@@ -75,8 +98,8 @@ def subtractVectors(vect1, vect2):
 	return vect
 
 def normaliseVector(vect):
-	magnitude = findMagnitudeOfVector(vect1)
-	vect = vect/magnitude
+	magnitude = findMagnitudeOfVector(vect)
+	vect = vect/magnitude.unsqueeze(-1)
 	return vect
 
 def findMagnitudeOfVector(vect):
@@ -89,7 +112,7 @@ def calculateNormal(pt1, pt2):
 
 def calculateMidPointBetweenTwoPoints(pt1, pt2):
 	midDiff = calculateMidDiffBetweenTwoPoints(pt1, pt2)
-	midPoint = pt1 + midDiff;
+	midPoint = pt1 + midDiff
 	return midPoint
 
 def calculateMidDiffBetweenTwoPoints(pt1, pt2):

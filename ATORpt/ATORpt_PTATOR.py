@@ -29,10 +29,11 @@ import ATORpt_PTgeometricHashing2DOD
 import ATORpt_PTgeometricHashing3DOD
 import ATORpt_operations
 import ATORpt_PTrenderer
+import ATORpt_PTdepth3DOD
 
 def generateATORpatches(use3DOD, imagePaths, train):
 	#image polys (ie polys across all images) are merged into single dim for geometric hashing and rendering
-	
+
 	keypointCoordinatesList = []
 	snapshotPixelCoordinatesList = []
 	snapshotMeshCoordinatesList = []
@@ -41,15 +42,13 @@ def generateATORpatches(use3DOD, imagePaths, train):
 	snapshotMeshPolyCoordinatesList = []
 	
 	for imageIndex, imagePath in enumerate(imagePaths):
-		#print("imageIndex = ", imageIndex)
+		print("imageIndex = ", imageIndex)
 		imageKeypointCoordinatesZoomList = []
 		for zoomIndex in range(numberOfZoomLevels):
-			#print("zoomIndex = ", zoomIndex)
+			print("\tzoomIndex = ", zoomIndex)
 			image, imageDepth = getImage(use3DOD, imagePath, applyZoom=True, zoomIndex=zoomIndex)
 			imageFeatureCoordinatesZoom = ATORpt_PTfeatures.featureDetection(image, zoomIndex)
 			imageKeypointCoordinatesZoom = ATORpt_PTkeypoints.performKeypointDetection(imageFeatureCoordinatesZoom)
-			if(use3DOD):
-				imageKeypointCoordinatesZoom = ATORpt_PTkeypoints.addZcoordinates(imageKeypointCoordinatesZoom, imageDepth)
 			imageKeypointCoordinatesZoomList.append(imageKeypointCoordinatesZoom)
 		imageKeypointCoordinates = pt.cat(imageKeypointCoordinatesZoomList, dim=0)
 		if(fullRotationalInvariance):
@@ -57,13 +56,19 @@ def generateATORpatches(use3DOD, imagePaths, train):
 			imageKeypointCoordinates = ATORpt_PTkeypoints.generateKeypointPermutations(imageKeypointCoordinates)
 		else:
 			imageKeypointCoordinates = ATORpt_PTkeypoints.cropCoordinatesArray(imageKeypointCoordinates, ATORmaxNumberOfPolys)
-		image, imageDepth = getImage(use3DOD, imagePath)
+		if(numberOfZoomLevels > 1):
+			image, imageDepth = getImage(use3DOD, imagePath)
 		snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTmesh.getSnapshotMeshCoordinates(use3DOD, imageKeypointCoordinates, image, imageDepth)
 		imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates = ATORpt_PTkeypoints.padCoordinatesArrays(imageKeypointCoordinates, snapshotPixelCoordinates, snapshotMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, snapshotMeshPolyCoordinates)	#pad coordinates to ATORmaxNumberOfPolys
 
 		if(debugSnapshotRenderFullImage):
 			drawImageWithKeypoints(use3DOD, imagePath, imageKeypointCoordinates)
 	
+		#print("keypointCoordinates.shape = ", keypointCoordinates.shape)
+		imageKeypointCoordinates = ATORpt_PTkeypoints.reorderKeypoints(imageKeypointCoordinates)
+		if(use3DOD):
+			imageKeypointCoordinates = ATORpt_PTkeypoints.addZcoordinates(imageKeypointCoordinates, imageDepth)
+		
 		keypointCoordinatesList.append(imageKeypointCoordinates)
 		snapshotPixelCoordinatesList.append(snapshotPixelCoordinates)
 		snapshotMeshCoordinatesList.append(snapshotMeshCoordinates)
@@ -91,7 +96,6 @@ def generateATORpatches(use3DOD, imagePaths, train):
 		meshCoordinates = snapshotMeshCoordinates
 		#snapshotMeshPolyCoordinates is not used by pytorch3D
 	
-	keypointCoordinates = ATORpt_PTkeypoints.reorderKeypoints(keypointCoordinates)
 	if(use3DOD):
 		transformedMeshCoordinates = ATORpt_PTgeometricHashing3DOD.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
 	else:
@@ -135,9 +139,11 @@ def getImage(use3DOD, imagePath, applyZoom=False, zoomIndex=-1):
 	if(use3DOD):
 		if(generate3DODfrom2DOD):
 			image = getImageCV(imagePath)
-			imageDepth = deriveImageDepth(image)
+			imageDepth = ATORpt_PTdepth3DOD.deriveImageDepth(image)
 		elif(generate3DODfromParallax):
-			image, imageDepth = getImage3D(imagePath)	
+			image, imageDepth = ATORpt_PTdepth3DOD.getImage3D(imagePath)	
+			imageDepth = ATORpt_PTmesh.convertImageToTensor(imageDepth)	#all imageDepth operations (resize, crop etc) assume tensor format
+			imageDepth = imageDepth.squeeze(0)
 	else:
 		image = getImageCV(imagePath)
 	if(applyZoom):

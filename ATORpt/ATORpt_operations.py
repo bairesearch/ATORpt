@@ -160,9 +160,6 @@ def printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, 
 	#print("printPixelCoordinatesIndex: step=" + str(step))
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(use3DOD, meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=centreSnapshots, index=index)
 
-
-
-
 def pil_to_tensor(image):
 	transformToTensor = transforms.ToTensor()
 	#transformToTensor = transforms.Compose([transforms.ToTensor(),])

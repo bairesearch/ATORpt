@@ -20,7 +20,8 @@ pip install click
 pip install opencv-python opencv-contrib-python
 pip install kornia
 pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel only)
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids only)
+pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 
 # Usage:
 source activate pytorch3d
