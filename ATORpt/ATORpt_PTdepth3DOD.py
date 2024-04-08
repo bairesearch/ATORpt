@@ -42,21 +42,14 @@ if(support3DOD):
 		transform = midas_transforms.small_transform
 
 	def deriveImageDepth(image):
-		#print("image.shape = ", image.shape)
-		#image = ATORpt_operations.pil_to_tensor(image).to(device)
-		#input_batch = image.unsqueeze(0)
 		input_batch = transform(image).to(device)
-		#print("input_batch.shape = ", input_batch.shape)
 		with pt.no_grad():
 			prediction = midas(input_batch)
 			prediction = pt.nn.functional.interpolate(prediction.unsqueeze(1), size=image.shape[:2], mode="bicubic", align_corners=False).squeeze()
-		#print("image.shape = ", image.shape)
-		print("prediction.shape = ", prediction.shape)
-		#print("prediction = ", prediction)
-		#imageDepth = prediction.cpu().numpy()
-		#plt.imshow(imageDepth)
-		#plt.show()
-
+		if(debug3DODgeneration):
+			imageDepth = prediction.cpu().numpy()
+			plt.imshow(imageDepth)
+			plt.show()
 		prediction = prediction.to(devicePreprocessing)
 		return prediction
 

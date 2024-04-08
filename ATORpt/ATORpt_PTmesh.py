@@ -50,10 +50,10 @@ def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=N
 		yPadded = y * ATORpatchPadding
 		if(debugSnapshotRenderCroppedImage):
 			#ensure snapshot is square
-			x = 12
-			y = 12
-			xPadded = x*ATORpatchPadding
-			yPadded = y*ATORpatchPadding
+			xSqr = 12
+			ySqr = 12
+			xPadded = xSqr*ATORpatchPadding
+			yPadded = ySqr*ATORpatchPadding
 		if(ATORpatchPadding > 1):
 			xMinPadded = int(xMin-(x*(ATORpatchPadding-1)/2))
 			yMinPadded = int(yMin-(y*(ATORpatchPadding-1)/2))
@@ -73,49 +73,60 @@ def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=N
 			image.putpixel((int(polyKeypointCoordinates[1, xAxisGeometricHashing]), int(polyKeypointCoordinates[1, yAxisGeometricHashing])), Y)
 			image.putpixel((int(polyKeypointCoordinates[2, xAxisGeometricHashing]), int(polyKeypointCoordinates[2, yAxisGeometricHashing])), C)		
 			
-		if(debugSnapshotRenderCroppedImage):
-			print("x = ", x)
-			print("y = ", y)
-			print("xPadded = ", xPadded)
-			print("yPadded = ", yPadded)
-			print("xMin = ", xMin)
-			print("yMin = ", yMin)
-			print("xMinPadded = ", xMinPadded)
-			print("yMinPadded = ", yMinPadded)
+		if(not use3DOD or use3DODgeoHashingScale):
+			if(debugSnapshotRenderCroppedImage):
+				print("x = ", x)
+				print("y = ", y)
+				print("xPadded = ", xPadded)
+				print("yPadded = ", yPadded)
+				print("xMin = ", xMin)
+				print("yMin = ", yMin)
+				print("xMinPadded = ", xMinPadded)
+				print("yMinPadded = ", yMinPadded)
 
-			#debug without resize:
-			xSnapshot = xPadded
-			ySnapshot = yPadded
+				#debug without resize:
+				xSnapshot = xPadded
+				ySnapshot = yPadded
+				xScaling = 1.0
+				yScaling = 1.0
+				resampledImageVert, resampledImageDepthVert = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded+1, xPadded+1, imageDepth)
+				resampledImage, resampledImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
+				print("croppedImage.size[width] = ", croppedImage.size[0])
+				print("croppedImage.size[height] = ", croppedImage.size[1])
+			else:
+				#print("image.size = ", image.size)
+				#print("imageDepth.shape = ", imageDepth.shape)
+				#print("xPadded = ", xPadded)
+				#print("yPadded = ", yPadded)
+				croppedImage, croppedImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
+				#print("croppedImage.size = ", croppedImage.size)
+				#print("croppedImageDepth.shape = ", croppedImageDepth.shape)
+				xSnapshot = ATORpatchSizeIntermediary[xAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
+				ySnapshot = ATORpatchSizeIntermediary[yAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
+				xScaling = xPadded/xSnapshot
+				yScaling = yPadded/ySnapshot
+				#print("xScaling = ", xScaling)
+				#print("yScaling = ", yScaling)
+				resampledImageVert, resampledImageDepthVert = resize(use3DOD, croppedImage, ySnapshot+1, xSnapshot+1, croppedImageDepth)
+				resampledImage, resampledImageDepth = resize(use3DOD, croppedImage, ySnapshot, xSnapshot, croppedImageDepth)
+				#print("resampledImage.size = ", resampledImage.size)
+				#print("resampledImageDepth.shape = ", resampledImageDepth.shape)
+		else:
+			x = min(image.width, image.height)	#ensure square
+			y = min(image.width, image.height)	#ensure square
+			resampledImageVert, resampledImageDepthVert = crop(use3DOD, image, 0, 0, y+1, x+1, imageDepth)
+			resampledImage, resampledImageDepth = crop(use3DOD, image, 0, 0, y, x, imageDepth)
+			#print("resampledImageVert.size = ", resampledImageVert.size)
+			#print("resampledImage.size = ", resampledImage.size)
+			#print("resampledImageDepthVert.shape = ", resampledImageDepthVert.shape)
+			#print("resampledImageDepth.shape = ", resampledImageDepth.shape)
+			xSnapshot = x
+			ySnapshot = y
 			xScaling = 1.0
 			yScaling = 1.0
-			croppedImageVert, croppedImageDepthVert = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded+1, xPadded+1, imageDepth)
-			croppedImage, croppedImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
-			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
-				croppedImage = croppedImageVert
-			print("croppedImage.size[width] = ", croppedImage.size[0])
-			print("croppedImage.size[height] = ", croppedImage.size[1])
-			resampledImage = convertImageToTensor(croppedImage)
-		else:
-			#print("image.size = ", image.size)
-			#print("imageDepth.shape = ", imageDepth.shape)
-			#print("xPadded = ", xPadded)
-			#print("yPadded = ", yPadded)
-			croppedImage, croppedImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
-			#print("croppedImage.size = ", croppedImage.size)
-			#print("croppedImageDepth.shape = ", croppedImageDepth.shape)
-			xSnapshot = ATORpatchSizeIntermediary[xAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
-			ySnapshot = ATORpatchSizeIntermediary[yAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
-			xScaling = xPadded/xSnapshot
-			yScaling = yPadded/ySnapshot
-			#print("xScaling = ", xScaling)
-			#print("yScaling = ", yScaling)
-			resampledImageVert, resampledImageDepthVert = resize(use3DOD, croppedImage, ySnapshot+1, xSnapshot+1, croppedImageDepth)
-			resampledImage, resampledImageDepth = resize(use3DOD, croppedImage, ySnapshot, xSnapshot, croppedImageDepth)
-			if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
-				resampledImage = resampledImageVert
-			#print("resampledImage.size = ", resampledImage.size)
-			#print("resampledImageDepth.shape = ", resampledImageDepth.shape)
-			resampledImage = convertImageToTensor(resampledImage)
+		if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+			resampledImage = resampledImageVert
+		resampledImage = convertImageToTensor(resampledImage)
 	
 		xMesh = xSnapshot+1
 		yMesh = ySnapshot+1
@@ -152,14 +163,11 @@ def generatePixelCoordinates(use3DOD, x, y, xScaling, yScaling, xMin, yMin, imag
 	resampledImageShape = (y, x)
 	polyPixelCoordinatesX = pt.arange(resampledImageShape[1]).expand(resampledImageShape[0], -1)	
 	polyPixelCoordinatesY = pt.arange(resampledImageShape[0]).unsqueeze(1).expand(-1, resampledImageShape[1])
-	#print("polyPixelCoordinatesX.shape = ", polyPixelCoordinatesX.shape)
-	#print("polyPixelCoordinatesY.shape = ", polyPixelCoordinatesY.shape)
 	polyPixelCoordinates = pt.stack((polyPixelCoordinatesX, polyPixelCoordinatesY), dim=-1)
 	polyPixelCoordinates = pt.reshape(polyPixelCoordinates, (polyPixelCoordinates.shape[0]*polyPixelCoordinates.shape[1], polyPixelCoordinates.shape[2]))
 	if(use3DOD):
-		#print("polyPixelCoordinates.shape = ", polyPixelCoordinates.shape)
-		#print("imageDepth.shape = ", imageDepth.shape)
 		polyPixelCoordinatesZ = pt.reshape(imageDepth, (imageDepth.shape[0]*imageDepth.shape[1], 1))
+		#print("polyPixelCoordinates.shape = ", polyPixelCoordinates.shape)
 		#print("polyPixelCoordinatesZ.shape = ", polyPixelCoordinatesZ.shape)
 		polyPixelCoordinates = pt.cat((polyPixelCoordinates, polyPixelCoordinatesZ), dim=1)	#add Z dimension to coordinates	#zAxisGeometricHashing
 	#convert polyPixelCoordinates back into original image coordinates frame:
@@ -169,13 +177,8 @@ def generatePixelCoordinates(use3DOD, x, y, xScaling, yScaling, xMin, yMin, imag
 	polyPixelCoordinates[:, yAxisGeometricHashing] = polyPixelCoordinates[:, yAxisGeometricHashing] + yMin
 	return polyPixelCoordinates
 	
-def generatePixelValues(resampledImage, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh, fullImage=False):
+def generatePixelValues(resampledImage, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh):
 	numberOfVertices = snapshotPixelCoordinates.shape[0]
-	if(fullImage):
-		if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
-			p2d = (0, 1, 0, 1) # pad last and second last dim by (0, 1)
-			resampledImage = F.pad(resampledImage, p2d, "constant", snapshotRenderExpectColorsDefinedForVerticesNotFacesPadVal)
-	#print("resampledImage.shape = ", resampledImage.shape)
 	#resampledImage = resampledImage.permute(2, 1, 0)	#reshape from c, y, x (cv2/TF/Pil) to x, y, c
 	resampledImage = resampledImage.permute(1, 2, 0)	#reshape from c, y, x (cv2/TF/Pil) to y, x, c
 	snapshotMeshValues = pt.reshape(resampledImage, (resampledImage.shape[0]*resampledImage.shape[1], resampledImage.shape[2]))	
@@ -231,7 +234,10 @@ def getImageMeshCoordinates(use3DOD, image, imageDepth=None):
 	ySnapshot = 300
 	print("height = ", height)
 
+	imageVert, imageDepthVert = crop(use3DOD, image, yMin, xMin, ySnapshot+1, xSnapshot+1, imageDepth)	#make sure image is square
 	image, imageDepth = crop(use3DOD, image, yMin, xMin, ySnapshot, xSnapshot, imageDepth)	#make sure image is square
+	if(snapshotRenderExpectColorsDefinedForVerticesNotFaces):
+		image = imageVert
 	image = convertImageToTensor(image)
 	
 	print("image.shape = ", image.shape)
@@ -243,8 +249,8 @@ def getImageMeshCoordinates(use3DOD, image, imageDepth=None):
 	xScaling = 1.0
 	yScaling = 1.0
 	snapshotPixelCoordinates = generatePixelCoordinates(use3DOD, xSnapshot, ySnapshot, xScaling, yScaling, xMin, yMin, imageDepth)
-	snapshotMeshCoordinates = generatePixelCoordinates(use3DOD, xMesh, yMesh, xScaling, yScaling, xMin, yMin, imageDepth)
-	snapshotMeshValues, snapshotMeshFaces = generatePixelValues(image, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh, fullImage=True) 
+	snapshotMeshCoordinates = generatePixelCoordinates(use3DOD, xMesh, yMesh, xScaling, yScaling, xMin, yMin, imageDepthVert)
+	snapshotMeshValues, snapshotMeshFaces = generatePixelValues(image, snapshotPixelCoordinates, xSnapshot, ySnapshot, xMesh, yMesh) 
 	#print("snapshotMeshCoordinates.shape = ", snapshotMeshCoordinates.shape)
 	snapshotMeshPolyCoordinates = generateMeshPolyCoordinates(snapshotMeshCoordinates)
 
@@ -288,6 +294,14 @@ def resize(use3DOD, image, yNewSize, xNewSize, imageDepth=None):
 	return resampledImage, resampledImageDepth
 
 def cropImageDepth(imageDepth, yMin, xMin, y, x):
+	yExtend = y-yMin - imageDepth.shape[yAxisImages]
+	xExtend	= x-xMin - imageDepth.shape[xAxisImages]
+	if(yExtend > 0):
+		#print("imageDepth[-yExtend:-1] = ", imageDepth[-yExtend-1:-1].shape)
+		#print("imageDepth[:, -xExtend:-1] = ", imageDepth[:, -xExtend-1:-1].shape)
+		imageDepth = pt.cat((imageDepth, imageDepth[-yExtend-1:-1]), dim=0) 	#extend y axis	#.unsqueeze(0)
+	if(xExtend > 0):
+		imageDepth = pt.cat((imageDepth, imageDepth[:, -xExtend-1:-1]), dim=1)	#extend x axis	#.unsqueeze(1)
 	imageDepth = imageDepth[yMin:yMin+y, xMin:xMin+x]
 	return imageDepth
 

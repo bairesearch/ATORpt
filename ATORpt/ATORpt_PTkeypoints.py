@@ -319,8 +319,18 @@ def addZcoordinates(imageKeypointCoordinates, imageDepth):
 	print("imageKeypointCoordinates.device = ", imageKeypointCoordinates.device)
 	print("imageDepth.device = ", imageDepth.device)
 	imageDepth = imageDepth.to(device)
-	imageKeypointCoordinatesInt = pt.round(imageKeypointCoordinates).long()
-	imageKeypointCoordinatesZ = imageDepth[imageKeypointCoordinatesInt[:, :, xAxisImages], imageKeypointCoordinatesInt[:, :, yAxisImages]]
+	if(setKeypointDepthMinimum):
+		imageKeypointCoordinatesIntMin = pt.floor(imageKeypointCoordinates).long()
+		imageKeypointCoordinatesIntMax = pt.ceil(imageKeypointCoordinates).long()
+		imageKeypointCoordinatesZ1 = imageDepth[imageKeypointCoordinatesIntMin[:, :, xAxisImages], imageKeypointCoordinatesIntMin[:, :, yAxisImages]]
+		imageKeypointCoordinatesZ2 = imageDepth[imageKeypointCoordinatesIntMin[:, :, xAxisImages], imageKeypointCoordinatesIntMax[:, :, yAxisImages]]
+		imageKeypointCoordinatesZ3 = imageDepth[imageKeypointCoordinatesIntMax[:, :, xAxisImages], imageKeypointCoordinatesIntMin[:, :, yAxisImages]]
+		imageKeypointCoordinatesZ4 = imageDepth[imageKeypointCoordinatesIntMax[:, :, xAxisImages], imageKeypointCoordinatesIntMax[:, :, yAxisImages]]
+		imageKeypointCoordinatesZall = pt.stack([imageKeypointCoordinatesZ1, imageKeypointCoordinatesZ2, imageKeypointCoordinatesZ3, imageKeypointCoordinatesZ4], dim=-1)
+		imageKeypointCoordinatesZ = pt.min(imageKeypointCoordinatesZall, dim=-1).values
+	else:
+		imageKeypointCoordinatesInt = pt.round(imageKeypointCoordinates).long()
+		imageKeypointCoordinatesZ = imageDepth[imageKeypointCoordinatesInt[:, :, xAxisImages], imageKeypointCoordinatesInt[:, :, yAxisImages]]
 	imageKeypointCoordinates = pt.cat((imageKeypointCoordinates, imageKeypointCoordinatesZ.unsqueeze(2)), dim=2)	#zAxisGeometricHashing
 	return imageKeypointCoordinates
 

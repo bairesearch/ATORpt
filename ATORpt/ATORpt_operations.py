@@ -133,11 +133,21 @@ def printCoordinatesIndex(use3DOD, keypointCoordinates, meshCoordinates, meshVal
 		printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, index, step)
 	
 def printKeypointsIndex(use3DOD, keypointCoordinates, index, step=None):
-	if(step < 1):	#before final scale transform
+	if(use3DOD and use3DODgeoHashingScale):
+		stepFirstTranslationTransform = 2
+		stepFinalTransform = 3
+	else:
+		stepFirstTranslationTransform = 1
+		stepFinalTransform = 4
+	if(step < stepFirstTranslationTransform):	#before final scale transform
 		debugPlotImageSize = 700	#max image size
-	elif(step < 4):	#before final scale transform
+	elif(step < stepFinalTransform):	#before final scale transform
 		debugPlotImageSize = ATORpatchSizeIntermediary[xAxisGeometricHashing]
 	else:
+		if(use3DOD):
+			renderViewportSize = renderViewportSize3DOD
+		else:
+			renderViewportSize = renderViewportSize2DOD
 		debugPlotImageSize = renderViewportSize[xAxisGeometricHashing]*2	#*2 for debug checking only
 	print("printKeypointsIndex: step=" + str(step))
 	print("keypointCoordinates[index] = ", keypointCoordinates[index])
@@ -148,16 +158,27 @@ def printKeypointsIndex(use3DOD, keypointCoordinates, index, step=None):
 	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValues, imageSize=debugPlotImageSize, permuteColorValues=False, title=title)
 
 def printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, index, step=None, centreSnapshots=True):
-	if(step < 1):	#before final scale transform
+	if(use3DOD and use3DODgeoHashingScale):
+		stepFirstTranslationTransform = 2
+		stepFinalTransform = 3
+	else:
+		stepFirstTranslationTransform = 1
+		stepFinalTransform = 5
+	if(step < stepFirstTranslationTransform):	#before final scale transform
 		renderViewportSizeDebug = (700, 700)	#max image size
 		renderImageSizeDebug = 1000	#256
-	elif(step < 5):	#before final scale transform
+	elif(step < stepFinalTransform):	#before final scale transform
 		renderViewportSizeDebug = ATORpatchSizeIntermediary
 		renderImageSizeDebug = 1000	#256
 	else:
+		if(use3DOD):
+			renderViewportSize = renderViewportSize3DOD
+		else:
+			renderViewportSize = renderViewportSize2DOD
 		renderViewportSizeDebug = renderViewportSize	#*2 for debug checking only
 		renderImageSizeDebug = renderImageSize	#*2 for debug checking only
-	#print("printPixelCoordinatesIndex: step=" + str(step))
+	print("printPixelCoordinatesIndex: step=" + str(step))
+	print("meshCoordinates[index] = ", meshCoordinates[index])
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(use3DOD, meshCoordinates, meshValues, meshFaces, renderViewportSizeDebug, renderImageSizeDebug, centreSnapshots=centreSnapshots, index=index)
 
 def pil_to_tensor(image):

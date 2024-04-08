@@ -22,11 +22,17 @@ import torch.nn as nn
 import math
 import os
 
-pt.set_printoptions(profile="full")
+useLovelyTensors = True
+if(useLovelyTensors):
+	import lovely_tensors as lt
+	lt.monkey_patch()
+else:
+	pt.set_printoptions(profile="full")
 pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
 #debug vars:
+debug3DODgeneration = False
 debugSingleZoomLevel = False
 debugProcessSingleImage = False
 debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
@@ -34,11 +40,15 @@ debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the 
 debugSnapshotRender = False	#draw intermediary transformed snapshots to debug the renderer
 debugGeometricHashingParallelFinal = False
 debugGeometricHashingParallel = False	#print intermediary transformed keypoints to debug the geometric hashing
-debugGeometricHashingParallelLargeMarker = True
 debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of untransformed snapshots) to debug the image coordinates generation for geometric hashing/rendering
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
-debugVITmaxNumberATORpatches = 60	#90	#30
+if(debug3DODgeneration):
+	debugVITmaxNumberATORpatches = 5	#required for !use3DODgeoHashingScale
+else:
+	debugVITmaxNumberATORpatches = 30	#60	#90	#30
+debugGeometricHashingParallelLargeMarker = True
+
 
 userName = 'systemusername'	#default: systemusername
 if(os.path.isdir('user')):
@@ -49,6 +59,7 @@ support3DOD = False	#incomplete
 if(support3DOD):
 	generate3DODfrom2DOD = True	#generate 3DOD (3d object data) from image before executing ATOR
 	#generate3DODfromParallax = False	#not yet coded	#parallax resolvable depth (PRD-ATOR)
+	setKeypointDepthMinimum = True	#set the keypoint detection depth/Z to their closest value 
 	
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -222,11 +233,18 @@ else:
 		snapshotRenderer = "pytorch3D"
 		normalisedObjectTriangleBaseLength = 1
 		normalisedObjectTriangleHeight = 1	#1: use equal base length and height for square snapshot generation, math.sqrt(3)/2: use equilateral triangle
+		if(support3DOD):
+			use3DODgeoHashingOrig = False	#perform rotation before translation
+			use3DODgeoHashingScale = True	#orig 3DOD implementation; !use3DODgeoHashingScale (will create full mesh snapshots rather than object triangle snapshots)
+			if(use3DODgeoHashingScale):
+				renderViewportSize3DOD = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
+			else:
+				renderViewportSize3DOD = (600, 600)	#max image size	#CHECKTHIS
 		if(debugSnapshotRender):
-			#renderViewportSize = (normalisedObjectTriangleBaseLength*2, normalisedObjectTriangleHeight*2)	#increase size of snapshot area to see if image coordinates align with object triangle
-			renderViewportSize = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
+			#renderViewportSize2DOD = (normalisedObjectTriangleBaseLength*2, normalisedObjectTriangleHeight*2)	#increase size of snapshot area to see if image coordinates align with object triangle
+			renderViewportSize2DOD = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
 		else:
-			renderViewportSize = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
+			renderViewportSize2DOD = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
 			#normaliseSnapshotLength*ATORpatchPadding
 		renderImageSize = normaliseSnapshotLength
 		if(ATORpatchPadding == 1):
@@ -246,13 +264,24 @@ else:
 			snapshotRenderCameraRotationYaxis = 0	#orient camera to face towards the mesh
 			snapshotRenderCameraRotationXaxis = 0
 			if(snapshotRenderCameraRotationYaxis == 180):
-				snapshotRenderCameraZnear = 0.0
-				snapshotRenderCameraZfar = -100.0
+				if(support3DOD):
+					snapshotRenderCameraZnear = 100.0
+					snapshotRenderCameraZfar = -100.0
+					snapshotRenderCameraZworkaround = True	#workaround required as FoVOrthographicCameras does not appear to render both -Z and +Z coordinates, irrespective of how snapshotRenderCameraZnear/snapshotRenderCameraZfar are set
+				else:
+					snapshotRenderCameraZnear = 0.0
+					snapshotRenderCameraZfar = -100.0
 				snapshotRenderZdimVal = -10.0
 			else:
-				snapshotRenderCameraZnear = 0.1
-				snapshotRenderCameraZfar = 100.0
+				if(support3DOD):
+					snapshotRenderCameraZnear = -100.0
+					snapshotRenderCameraZfar = 100.0
+					snapshotRenderCameraZworkaround = True	#workaround required as FoVOrthographicCameras does not appear to render both -Z and +Z coordinates, irrespective of how snapshotRenderCameraZnear/snapshotRenderCameraZfar are set
+				else:
+					snapshotRenderCameraZnear = 0.1
+					snapshotRenderCameraZfar = 100.0
 				snapshotRenderZdimVal = 10.0
+
 	elif(useATORCPPserial):
 		VITmaxNumberATORpolysPerZoom = VITmaxNumberATORpatches//numberOfZoomLevels	#300	#CHECKTHIS
 		trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 

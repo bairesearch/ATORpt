@@ -40,6 +40,7 @@ def resamplePixelCoordinates(use3DOD, transformedSnapshotPixelCoordinates, snaps
 	return transformedPatches
 	
 def renderSnapshotsPytorch3D(use3DOD, verts, faces, colors, renderViewportSize, renderImageSize, centreSnapshots=False, index=None):
+	#print("verts = ", verts)
 	if(not use3DOD):
 		#add Z dimension to coordinates
 		vertsZ = pt.ones((verts.shape[0], verts.shape[1], 1)).to(device)
@@ -71,7 +72,7 @@ def renderSnapshotsPytorch3D(use3DOD, verts, faces, colors, renderViewportSize, 
 			min_y=0
 			max_y=renderViewportSize[yAxisGeometricHashing]
 		#or T = pt.tensor([[0., -renderViewportSize[yAxisGeometricHashing]//2., 0.]])
-				
+	
 	cameras = FoVOrthographicCameras(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y, znear=snapshotRenderCameraZnear, zfar=snapshotRenderCameraZfar, R=R, T=T, device=device)
 
 	lights = PointLights(device=device, ambient_color=((1, 1, 1),), diffuse_color=((0, 0, 0),), specular_color=((0, 0, 0),))
