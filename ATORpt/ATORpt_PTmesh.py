@@ -37,6 +37,13 @@ def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=N
 	snapshotMeshValuesList = []	#RGB values for each pixel/mesh coordinate in mesh	#colors
 	snapshotMeshFacesList = []
 	snapshotMeshPolyCoordinatesList = []
+	
+	if(use3DOD):
+		ATORpatchPadding = ATORpatchPadding3DOD
+		ATORpatchSizeIntermediary = ATORpatchSizeIntermediary3DOD
+	else:
+		ATORpatchPadding = ATORpatchPadding2DOD
+		ATORpatchSizeIntermediary =	ATORpatchSizeIntermediary2DOD
 		
 	for polyIndex in range(keypointCoordinates.shape[0]):
 		polyKeypointCoordinates = keypointCoordinates[polyIndex]
@@ -73,17 +80,8 @@ def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=N
 			image.putpixel((int(polyKeypointCoordinates[1, xAxisGeometricHashing]), int(polyKeypointCoordinates[1, yAxisGeometricHashing])), Y)
 			image.putpixel((int(polyKeypointCoordinates[2, xAxisGeometricHashing]), int(polyKeypointCoordinates[2, yAxisGeometricHashing])), C)		
 			
-		if(not use3DOD or use3DODgeoHashingScale):
+		if(not use3DOD or ATOR3DODgeoHashingScale):
 			if(debugSnapshotRenderCroppedImage):
-				print("x = ", x)
-				print("y = ", y)
-				print("xPadded = ", xPadded)
-				print("yPadded = ", yPadded)
-				print("xMin = ", xMin)
-				print("yMin = ", yMin)
-				print("xMinPadded = ", xMinPadded)
-				print("yMinPadded = ", yMinPadded)
-
 				#debug without resize:
 				xSnapshot = xPadded
 				ySnapshot = yPadded
@@ -91,26 +89,14 @@ def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=N
 				yScaling = 1.0
 				resampledImageVert, resampledImageDepthVert = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded+1, xPadded+1, imageDepth)
 				resampledImage, resampledImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
-				print("croppedImage.size[width] = ", croppedImage.size[0])
-				print("croppedImage.size[height] = ", croppedImage.size[1])
 			else:
-				#print("image.size = ", image.size)
-				#print("imageDepth.shape = ", imageDepth.shape)
-				#print("xPadded = ", xPadded)
-				#print("yPadded = ", yPadded)
 				croppedImage, croppedImageDepth = crop(use3DOD, image, yMinPadded, xMinPadded, yPadded, xPadded, imageDepth)
-				#print("croppedImage.size = ", croppedImage.size)
-				#print("croppedImageDepth.shape = ", croppedImageDepth.shape)
 				xSnapshot = ATORpatchSizeIntermediary[xAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
 				ySnapshot = ATORpatchSizeIntermediary[yAxisGeometricHashing]	#normaliseSnapshotLength*ATORpatchPadding*ATORpatchUpscaling
 				xScaling = xPadded/xSnapshot
 				yScaling = yPadded/ySnapshot
-				#print("xScaling = ", xScaling)
-				#print("yScaling = ", yScaling)
 				resampledImageVert, resampledImageDepthVert = resize(use3DOD, croppedImage, ySnapshot+1, xSnapshot+1, croppedImageDepth)
 				resampledImage, resampledImageDepth = resize(use3DOD, croppedImage, ySnapshot, xSnapshot, croppedImageDepth)
-				#print("resampledImage.size = ", resampledImage.size)
-				#print("resampledImageDepth.shape = ", resampledImageDepth.shape)
 		else:
 			x = min(image.width, image.height)	#ensure square
 			y = min(image.width, image.height)	#ensure square
@@ -294,15 +280,9 @@ def resize(use3DOD, image, yNewSize, xNewSize, imageDepth=None):
 	return resampledImage, resampledImageDepth
 
 def cropImageDepth(imageDepth, yMin, xMin, y, x):
-	yExtend = y-yMin - imageDepth.shape[yAxisImages]
-	xExtend	= x-xMin - imageDepth.shape[xAxisImages]
-	if(yExtend > 0):
-		#print("imageDepth[-yExtend:-1] = ", imageDepth[-yExtend-1:-1].shape)
-		#print("imageDepth[:, -xExtend:-1] = ", imageDepth[:, -xExtend-1:-1].shape)
-		imageDepth = pt.cat((imageDepth, imageDepth[-yExtend-1:-1]), dim=0) 	#extend y axis	#.unsqueeze(0)
-	if(xExtend > 0):
-		imageDepth = pt.cat((imageDepth, imageDepth[:, -xExtend-1:-1]), dim=1)	#extend x axis	#.unsqueeze(1)
-	imageDepth = imageDepth[yMin:yMin+y, xMin:xMin+x]
+	imageDepth = pt.permute(imageDepth, (1, 0))	#switch from W,H to H,W
+	imageDepth = crop_and_pad(imageDepth, yMin, xMin, y, x)
+	imageDepth = pt.permute(imageDepth, (0, 1))	#switch from H,W to W,H
 	return imageDepth
 
 def resizeImageDepth(imageDepth, new_height, new_width):
@@ -317,3 +297,48 @@ def resizeImageDepth(imageDepth, new_height, new_width):
 	imageDepth = imageDepth[y_nearest, x_nearest]
 	return imageDepth
 	
+def crop_and_pad(tensor, top, left, height, width):
+	"""
+	Crops a 2D or 3D tensor to a specified height and width, padding with zeros if necessary.
+
+	Parameters:
+	- tensor (torch.Tensor): The input tensor. Expected shape: (C, H, W) or (H, W).
+	- top (int): The top coordinate for the crop.
+	- left (int): The left coordinate for the crop.
+	- height (int): The height of the crop.
+	- width (int): The width of the crop.
+
+	Returns:
+	- torch.Tensor: The cropped and potentially zero-padded tensor.
+	"""
+	# Ensure tensor is at least 3D
+	was_2d = False
+	if tensor.dim() == 2:
+		tensor = tensor.unsqueeze(0)  # Add a channel dimension if it's missing
+		was_2d = True
+
+	_, orig_h, orig_w = tensor.size()
+
+	# Calculate padding requirements
+	pad_left = max(0, -left)
+	pad_top = max(0, -top)
+	pad_right = max(0, left + width - orig_w)
+	pad_bottom = max(0, top + height - orig_h)
+
+	# Apply padding if needed
+	if pad_left > 0 or pad_right > 0 or pad_top > 0 or pad_bottom > 0:
+		tensor = F.pad(tensor, (pad_left, pad_right, pad_top, pad_bottom), 'constant', ATORpatchCropPaddingValue)
+
+	# Adjust crop coordinates to the new padded tensor dimensions
+	crop_left = max(0, left)
+	crop_top = max(0, top)
+
+	# Crop the tensor
+	cropped_tensor = tensor[:, crop_top:crop_top + height, crop_left:crop_left + width]
+
+	# If the original tensor was 2D, remove the added channel dimension
+	if was_2d:
+		cropped_tensor = cropped_tensor.squeeze(0)
+
+	return cropped_tensor
+

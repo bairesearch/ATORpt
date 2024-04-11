@@ -319,7 +319,7 @@ def addZcoordinates(imageKeypointCoordinates, imageDepth):
 	print("imageKeypointCoordinates.device = ", imageKeypointCoordinates.device)
 	print("imageDepth.device = ", imageDepth.device)
 	imageDepth = imageDepth.to(device)
-	if(setKeypointDepthMinimum):
+	if(ATOR3DODsetKeypointDepthMinimum):
 		imageKeypointCoordinatesIntMin = pt.floor(imageKeypointCoordinates).long()
 		imageKeypointCoordinatesIntMax = pt.ceil(imageKeypointCoordinates).long()
 		imageKeypointCoordinatesZ1 = imageDepth[imageKeypointCoordinatesIntMin[:, :, xAxisImages], imageKeypointCoordinatesIntMin[:, :, yAxisImages]]

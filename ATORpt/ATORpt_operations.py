@@ -109,6 +109,13 @@ def printKeypoints(use3DOD, keypointCoordinates, step=None):
 		printKeypointsIndex(use3DOD, keypointCoordinates, index, step=step)
 
 def printPixelCoordinates(use3DOD, meshCoordinates, meshValues, meshFaces, step=None, centreSnapshots=True):
+	if(use3DOD):
+		renderViewportSize = renderViewportSize3DOD
+		ATORpatchSizeIntermediary = ATORpatchSizeIntermediary3DOD
+	else:
+		renderViewportSize = renderViewportSize2DOD
+		ATORpatchSizeIntermediary =	ATORpatchSizeIntermediary2DOD
+		
 	if(step is None):
 		print("printPixelCoordinates:")
 		renderViewportSizeDebug = renderViewportSize
@@ -133,7 +140,14 @@ def printCoordinatesIndex(use3DOD, keypointCoordinates, meshCoordinates, meshVal
 		printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, index, step)
 	
 def printKeypointsIndex(use3DOD, keypointCoordinates, index, step=None):
-	if(use3DOD and use3DODgeoHashingScale):
+	if(use3DOD):
+		renderViewportSize = renderViewportSize3DOD
+		ATORpatchSizeIntermediary = ATORpatchSizeIntermediary3DOD
+	else:
+		renderViewportSize = renderViewportSize2DOD
+		ATORpatchSizeIntermediary =	ATORpatchSizeIntermediary2DOD
+		
+	if(use3DOD and ATOR3DODgeoHashingScale):
 		stepFirstTranslationTransform = 2
 		stepFinalTransform = 3
 	else:
@@ -144,10 +158,6 @@ def printKeypointsIndex(use3DOD, keypointCoordinates, index, step=None):
 	elif(step < stepFinalTransform):	#before final scale transform
 		debugPlotImageSize = ATORpatchSizeIntermediary[xAxisGeometricHashing]
 	else:
-		if(use3DOD):
-			renderViewportSize = renderViewportSize3DOD
-		else:
-			renderViewportSize = renderViewportSize2DOD
 		debugPlotImageSize = renderViewportSize[xAxisGeometricHashing]*2	#*2 for debug checking only
 	print("printKeypointsIndex: step=" + str(step))
 	print("keypointCoordinates[index] = ", keypointCoordinates[index])
@@ -158,7 +168,14 @@ def printKeypointsIndex(use3DOD, keypointCoordinates, index, step=None):
 	printImageCoordinates(keypointCoordinatesCombined[:, xAxisGeometricHashing], keypointCoordinatesCombined[:, yAxisGeometricHashing], keypointValues, imageSize=debugPlotImageSize, permuteColorValues=False, title=title)
 
 def printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, index, step=None, centreSnapshots=True):
-	if(use3DOD and use3DODgeoHashingScale):
+	if(use3DOD):
+		renderViewportSize = renderViewportSize3DOD
+		ATORpatchSizeIntermediary = ATORpatchSizeIntermediary3DOD
+	else:
+		renderViewportSize = renderViewportSize2DOD
+		ATORpatchSizeIntermediary =	ATORpatchSizeIntermediary2DOD
+		
+	if(use3DOD and ATOR3DODgeoHashingScale):
 		stepFirstTranslationTransform = 2
 		stepFinalTransform = 3
 	else:
@@ -171,10 +188,6 @@ def printPixelCoordinatesIndex(use3DOD, meshCoordinates, meshValues, meshFaces, 
 		renderViewportSizeDebug = ATORpatchSizeIntermediary
 		renderImageSizeDebug = 1000	#256
 	else:
-		if(use3DOD):
-			renderViewportSize = renderViewportSize3DOD
-		else:
-			renderViewportSize = renderViewportSize2DOD
 		renderViewportSizeDebug = renderViewportSize	#*2 for debug checking only
 		renderImageSizeDebug = renderImageSize	#*2 for debug checking only
 	print("printPixelCoordinatesIndex: step=" + str(step))

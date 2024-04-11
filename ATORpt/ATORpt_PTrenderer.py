@@ -72,7 +72,14 @@ def renderSnapshotsPytorch3D(use3DOD, verts, faces, colors, renderViewportSize, 
 			min_y=0
 			max_y=renderViewportSize[yAxisGeometricHashing]
 		#or T = pt.tensor([[0., -renderViewportSize[yAxisGeometricHashing]//2., 0.]])
-	
+	if(use3DOD):
+		if(ATOR3DODgeoHashingAlignObjectTriangleBaseVertically):
+			#object triangle base is aligned with y axis (rather than x axis)
+			min_yTemp, max_yTemp = min_y, max_y
+			min_y, max_y = min_x, max_x
+			min_x, max_x = min_yTemp, max_yTemp
+		#ATOR 3DOD: expects 
+
 	cameras = FoVOrthographicCameras(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y, znear=snapshotRenderCameraZnear, zfar=snapshotRenderCameraZfar, R=R, T=T, device=device)
 
 	lights = PointLights(device=device, ambient_color=((1, 1, 1),), diffuse_color=((0, 0, 0),), specular_color=((0, 0, 0),))

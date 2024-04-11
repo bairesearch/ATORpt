@@ -44,7 +44,7 @@ debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of 
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
 if(debug3DODgeneration):
-	debugVITmaxNumberATORpatches = 5	#required for !use3DODgeoHashingScale
+	debugVITmaxNumberATORpatches = 5	#required for !ATOR3DODgeoHashingScale
 else:
 	debugVITmaxNumberATORpatches = 30	#60	#90	#30
 debugGeometricHashingParallelLargeMarker = True
@@ -59,7 +59,6 @@ support3DOD = False	#incomplete
 if(support3DOD):
 	generate3DODfrom2DOD = True	#generate 3DOD (3d object data) from image before executing ATOR
 	#generate3DODfromParallax = False	#not yet coded	#parallax resolvable depth (PRD-ATOR)
-	setKeypointDepthMinimum = True	#set the keypoint detection depth/Z to their closest value 
 	
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -188,7 +187,11 @@ else:
 	if(debugGeometricHashingParallel or debugSnapshotRender or debugGeometricHashingParallelFinal or debugSnapshotRenderFinal):
 		VITmaxNumberATORpatches = debugVITmaxNumberATORpatches
 	else: 
-		VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
+		if(support3DOD):
+			VITmaxNumberATORpatches = 400	#ATOR3DODrenderViewportSizeExpand requires more GPU ram
+		else:
+			VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
+	assert ((VITmaxNumberATORpatches**0.5)%1 == 0)	#ensure sqrt(VITmaxNumberATORpatches) is a whole number
 	VITnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfChannels = 3
 	VITpatchSizeX = normaliseSnapshotLength
@@ -215,9 +218,19 @@ else:
 		ATORmaxNumberOfPolys = VITmaxNumberATORpatches	#max number of normalised patches per image
 		keypointPadValue = -1
 		meshPadValue = -1
-		ATORpatchPadding = 2	#1, 2
+		ATORpatchPadding2DOD = 2	#1, 2
+		if(support3DOD):
+			ATOR3DODobjectTriangleMaintinAspectRatio = True	#3DOD object triangle is not deformed to an equilateral triangle; it maintains its original aspect ratio	 #ATOR3DODobjectTriangleMaintinAspectRatio is orig ATOR 3DOD implementation	#only currently available implementation
+			if(ATOR3DODobjectTriangleMaintinAspectRatio):
+				ATOR3DODrenderViewportSizeExpand = 2 	#used to ensure all object triangle data are captured in viewport	#will depend on both keypointDetectionMaxColinearity and ATORpatchPadding
+			else:
+				ATOR3DODrenderViewportSizeExpand = 1
+			ATORpatchPadding3DOD = ATORpatchPadding2DOD*ATOR3DODrenderViewportSizeExpand
 		ATORpatchUpscaling = 1	#1, 2
-		ATORpatchSizeIntermediary = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding)	#use larger patch size to preserve information during resampling
+		ATORpatchSizeIntermediary2DOD = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding2DOD, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding2DOD)	#use larger patch size to preserve information during resampling
+		ATORpatchCropPaddingValue = 0	#must match https://pytorch.org/vision/main/generated/torchvision.transforms.functional.crop.html #If image size is smaller than output size along any edge, image is padded with 0 and then cropped.
+		if(support3DOD):
+			ATORpatchSizeIntermediary3DOD = (normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding3DOD, normaliseSnapshotLength*ATORpatchUpscaling*ATORpatchPadding3DOD)	#use larger patch size to preserve information during resampling
 		useGeometricHashingHardcodedParallelisedDeformation = True	#apply multiple rotation matrices in parallel
 		segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 		useFeatureDetectionCorners = True
@@ -234,10 +247,11 @@ else:
 		normalisedObjectTriangleBaseLength = 1
 		normalisedObjectTriangleHeight = 1	#1: use equal base length and height for square snapshot generation, math.sqrt(3)/2: use equilateral triangle
 		if(support3DOD):
-			use3DODgeoHashingOrig = False	#perform rotation before translation
-			use3DODgeoHashingScale = True	#orig 3DOD implementation; !use3DODgeoHashingScale (will create full mesh snapshots rather than object triangle snapshots)
-			if(use3DODgeoHashingScale):
-				renderViewportSize3DOD = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
+			ATOR3DODsetKeypointDepthMinimum = True	#set the keypoint detection depth/Z to their closest value 
+			ATOR3DODgeoHashingAlignObjectTriangleBaseVertically = True	#align object triangle base with y axis 	#currently required (else must reconfigure eye, up, at)
+			ATOR3DODgeoHashingScale = True	#!ATOR3DODgeoHashingScale is orig ATOR 3DOD implementation (will create full mesh snapshots rather than object triangle snapshots)
+			if(ATOR3DODgeoHashingScale):
+				renderViewportSize3DOD = (normalisedObjectTriangleBaseLength*ATOR3DODrenderViewportSizeExpand, normalisedObjectTriangleHeight*ATOR3DODrenderViewportSizeExpand)
 			else:
 				renderViewportSize3DOD = (600, 600)	#max image size	#CHECKTHIS
 		if(debugSnapshotRender):
@@ -247,7 +261,7 @@ else:
 			renderViewportSize2DOD = (normalisedObjectTriangleBaseLength, normalisedObjectTriangleHeight)
 			#normaliseSnapshotLength*ATORpatchPadding
 		renderImageSize = normaliseSnapshotLength
-		if(ATORpatchPadding == 1):
+		if(ATORpatchPadding2DOD == 1):
 			applyObjectTriangleMask = True	#mask out transformed image coordinates outside of object triangle
 		else:
 			applyObjectTriangleMask = False

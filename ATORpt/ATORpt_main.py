@@ -49,6 +49,7 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 			- approx 10 images with 900 30x30px 2D0D tri polys per image, generated from approx 500 features per 500x500px image
 			- approx 100x faster than useATORCPPserial
 		- requires pytorch3d library
+		- support3DOD:generate3DODfrom2DOD uses intel-isl MiDaS library (3D input object data)
 	- useATORCPPserial:
 		- uses ATOR C++ executable to generate transformed patches (normalised snapshots)
 		- requires all ATOR C++ prerequisites 
@@ -64,7 +65,7 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 See ATOR specification: https://www.wipo.int/patentscope/search/en/WO2011088497
 
 Future:
-Requires upgrading to support 3DOD (3D input object data)
+Requires upgrading to support3DOD:generate3DODfromParallax
 
 """
 
