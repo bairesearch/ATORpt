@@ -171,8 +171,8 @@ if(useStandardVIT):
 			correct = 0
 			total = 0
 			print("epoch = ", epoch)
-			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
-				#print("batch = ", batch)
+			for batchIndex, batch in enumerate(tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False)):
+				print("batchIndex = ", batchIndex)
 				if(databaseName == "ALOI-VIEW"):
 					imageIndices, viewIndices = batch
 					print("imageIndices = ", imageIndices)

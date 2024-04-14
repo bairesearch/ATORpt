@@ -50,17 +50,17 @@ if(databaseName == "ALOI-VIEW"):
 					viewIndex = debugProcessSingleViewIndexTest
 			else:
 				if(self.train):
-					imageIndex = idx//ALOIdatabaseNumberOfViewsTrain
+					imageIndex = (idx//ALOIdatabaseNumberOfViewsTrain)
 					viewIndex = idx%ALOIdatabaseNumberOfViewsTrain
 				else:
-					imageIndex = idx//ALOIdatabaseNumberOfViewsTest
+					imageIndex = (idx//ALOIdatabaseNumberOfViewsTest)
 					viewIndex = idx%ALOIdatabaseNumberOfViewsTest + ALOIdatabaseNumberOfViewsTrain
 			return imageIndex, viewIndex
 						
 	def createDataloader():
 		trainDataset = ALOIVIEWDataset(train=True)	#transform=transform
 		testDataset = ALOIVIEWDataset(train=False)	#transform=transform
-		trainDataLoader = DataLoader(trainDataset, batch_size=batchSize, shuffle=True, generator=pt.Generator(device='cuda'))
+		trainDataLoader = DataLoader(trainDataset, batch_size=batchSize, shuffle=databaseTrainShuffle, generator=pt.Generator(device='cuda'))
 		testDataLoader = DataLoader(testDataset, batch_size=batchSize, shuffle=False, generator=pt.Generator(device='cuda'))
 		return trainDataLoader, testDataLoader
 
@@ -80,7 +80,7 @@ if(databaseName == "ALOI-VIEW"):
 		imagePathList = []
 		print("imageIndices.shape = ", imageIndices.shape)
 		for i in range(imageIndices.shape[0]):
-			imageIndex = imageIndices[i].item()
+			imageIndex = imageIndices[i].item()+ALOIdatabaseImageStartIndex
 			viewIndex = viewIndices[i].item()
 			viewName = str(int(viewIndex*(360/ALOIdatabaseNumberOfViews)))
 			imageName = str(imageIndex) + "_r" + viewName + ".png"
@@ -94,7 +94,7 @@ elif(databaseName == "MNIST"):
 	def createDataloader():
 		trainDataset = MNIST(root='./../datasets', train=True, download=True, transform=transforms.ToTensor())
 		testDataset = MNIST(root='./../datasets', train=False, download=True, transform=transforms.ToTensor())
-		trainDataLoader = DataLoader(trainDataset, shuffle=True, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		trainDataLoader = DataLoader(trainDataset, shuffle=databaseTrainShuffle, batch_size=batchSize, generator=pt.Generator(device='cuda'))
 		testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
 		return trainDataLoader, testDataLoader
 		

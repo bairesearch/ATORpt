@@ -32,6 +32,7 @@ pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
 #debug vars:
+debugVIT = False
 debug3DODgeneration = False
 debugSingleZoomLevel = False
 debugProcessSingleImage = False
@@ -44,9 +45,9 @@ debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of 
 debugFeatureDetection = False	#print features on original images
 debugPolyIndex = 0	#poly index used for intermediary transformed snapshots debugging 
 if(debug3DODgeneration):
-	debugVITmaxNumberATORpatches = 5	#required for !ATOR3DODgeoHashingScale
+	debugVITmaxNumberATORpatches = 4	#required for !ATOR3DODgeoHashingScale
 else:
-	debugVITmaxNumberATORpatches = 30	#60	#90	#30
+	debugVITmaxNumberATORpatches = 36	#60	#90	#30
 debugGeometricHashingParallelLargeMarker = True
 
 
@@ -59,6 +60,7 @@ support3DOD = False	#incomplete
 if(support3DOD):
 	generate3DODfrom2DOD = True	#generate 3DOD (3d object data) from image before executing ATOR
 	#generate3DODfromParallax = False	#not yet coded	#parallax resolvable depth (PRD-ATOR)
+	ATOR3DODgeoHashingScale = False	#!ATOR3DODgeoHashingScale is orig ATOR 3DOD implementation (will create full mesh snapshots rather than object triangle snapshots)
 	
 useEndToEndNeuralModel = False
 if(not useEndToEndNeuralModel):
@@ -75,21 +77,33 @@ else:
 if(databaseName == "ALOI-VIEW"):
 	databaseRoot = "/media/" + userName + "/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
-	numberOfOutputDimensions = 1000	
+	ALOIdatabaseImageStartIndex = 1
+	if(debugVIT):
+		numberOfOutputDimensions = 10
+		ALOIdatabaseNumberOfImages = 10
+		ALOIdatabaseNumberOfViews = 4	#72
+		ALOIdatabaseNumberOfIlluminationDirections = 4	#24
+		ALOIdatabaseNumberOfIlluminationColours = 4	#12
+		ALOIdatabaseNumberOfViewsTrain = 3	#64
+		ALOIdatabaseNumberOfViewsTest = 1	#8
+		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
+		numberOfSpatialResolutions = 1	
+	else:
+		numberOfOutputDimensions = 1000	
+		ALOIdatabaseNumberOfImages = 1000
+		ALOIdatabaseNumberOfViews = 72
+		ALOIdatabaseNumberOfIlluminationDirections = 24
+		ALOIdatabaseNumberOfIlluminationColours = 12
+		ALOIdatabaseNumberOfViewsTrain = 64
+		ALOIdatabaseNumberOfViewsTest = 8
+		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
+		numberOfSpatialResolutions = 1
 	if(debugProcessSingleImage):
 		debugProcessSingleImageIndexTrain = 868	#Object.nr:.868 - nutrilon nora box	#Object.nr:.525 - Paper box	#common ATOR C implementation samples for high point/corner feature detection
 		debugProcessSingleViewIndexTrain = 0
 		debugProcessSingleImageIndexTest = 868	#Object.nr:.868 - nutrilon nora box	#Object.nr:.525 - Paper box	#common ATOR C implementation samples for high point/corner feature detection
 		debugProcessSingleViewIndexTest = 66
-	ALOIdatabaseNumberOfImages = 1000
-	ALOIdatabaseNumberOfViews = 72
-	ALOIdatabaseNumberOfIlluminationDirections = 24
-	ALOIdatabaseNumberOfIlluminationColours = 12
-	ALOIdatabaseNumberOfViewsTrain = 64
-	ALOIdatabaseNumberOfViewsTest = 8
-	databaseNumberOfClasses = ALOIdatabaseNumberOfImages
-	numberOfSpatialResolutions = 1
-elif(databaseName == "MNIST"):
+elif(databaseName == "MNIST"): 
 	databaseImageShape = (1, 28, 28)   #numberOfChannels, imageHeight, imageWidth
 	numberOfOutputDimensions = 10
 	databaseNumberOfClasses = numberOfOutputDimensions
@@ -102,7 +116,12 @@ else:
 	print("unknown databaseName: = ", databaseName)
 	exit()
 
-trainNumberOfEpochs = 10
+if(debugVIT):
+	databaseTrainShuffle = False
+else:
+	databaseTrainShuffle = True
+
+trainNumberOfEpochs = 10	#10	#1
 
 if(useEndToEndNeuralModel):
 	useStandardVIT = False	#custom ViT required
@@ -188,9 +207,13 @@ else:
 		VITmaxNumberATORpatches = debugVITmaxNumberATORpatches
 	else: 
 		if(support3DOD):
-			VITmaxNumberATORpatches = 400	#ATOR3DODrenderViewportSizeExpand requires more GPU ram
+			if(ATOR3DODgeoHashingScale):
+				VITmaxNumberATORpatches = 400	#ATOR3DODrenderViewportSizeExpand requires more GPU ram
+			else:
+				VITmaxNumberATORpatches = 16	#!ATOR3DODgeoHashingScale currently requires very high GPU ram (~full image snapshots)
 		else:
 			VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
+	print("VITmaxNumberATORpatches**0.5 = ", VITmaxNumberATORpatches**0.5)
 	assert ((VITmaxNumberATORpatches**0.5)%1 == 0)	#ensure sqrt(VITmaxNumberATORpatches) is a whole number
 	VITnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfChannels = 3
@@ -249,7 +272,6 @@ else:
 		if(support3DOD):
 			ATOR3DODsetKeypointDepthMinimum = True	#set the keypoint detection depth/Z to their closest value 
 			ATOR3DODgeoHashingAlignObjectTriangleBaseVertically = True	#align object triangle base with y axis 	#currently required (else must reconfigure eye, up, at)
-			ATOR3DODgeoHashingScale = True	#!ATOR3DODgeoHashingScale is orig ATOR 3DOD implementation (will create full mesh snapshots rather than object triangle snapshots)
 			if(ATOR3DODgeoHashingScale):
 				renderViewportSize3DOD = (normalisedObjectTriangleBaseLength*ATOR3DODrenderViewportSizeExpand, normalisedObjectTriangleHeight*ATOR3DODrenderViewportSizeExpand)
 			else:
