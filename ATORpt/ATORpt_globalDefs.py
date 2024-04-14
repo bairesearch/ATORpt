@@ -49,7 +49,7 @@ if(debug3DODgeneration):
 else:
 	debugVITmaxNumberATORpatches = 36	#60	#90	#30
 debugGeometricHashingParallelLargeMarker = True
-
+debugVerbose = False
 
 userName = 'systemusername'	#default: systemusername
 if(os.path.isdir('user')):
@@ -117,7 +117,7 @@ else:
 	exit()
 
 if(debugVIT):
-	databaseTrainShuffle = False
+	databaseTrainShuffle = True	#False
 else:
 	databaseTrainShuffle = True
 
@@ -213,7 +213,7 @@ else:
 				VITmaxNumberATORpatches = 16	#!ATOR3DODgeoHashingScale currently requires very high GPU ram (~full image snapshots)
 		else:
 			VITmaxNumberATORpatches = 900	#max number of normalised patches per image (spare patches are filled with dummy var)	#lower number required for debug (CUDA memory)
-	print("VITmaxNumberATORpatches**0.5 = ", VITmaxNumberATORpatches**0.5)
+	#print("VITmaxNumberATORpatches**0.5 = ", VITmaxNumberATORpatches**0.5)
 	assert ((VITmaxNumberATORpatches**0.5)%1 == 0)	#ensure sqrt(VITmaxNumberATORpatches) is a whole number
 	VITnumberOfPatches = VITmaxNumberATORpatches
 	VITnumberOfChannels = 3

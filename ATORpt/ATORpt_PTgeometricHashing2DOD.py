@@ -28,7 +28,8 @@ def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshVa
 	#meshCoordinates shape: [numberPolys, numberCoordinatesInSnapshot, numberOfGeometricDimensions2DOD], i.e. [yCoordinate, xCoordinate] for each keypoint in poly
 	use3DOD = False
 	
-	print("start performGeometricHashingParallel")
+	if(debugVerbose):
+		print("start performGeometricHashingParallel")
 
 	#based on https://patentscope.wipo.int/search/en/detail.jsf?docId=WO2011088497 Fig 30->35
 	#see ATORmethod2DOD:transformObjectData2DOD for unvectorised (ie serial processing) method

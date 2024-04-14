@@ -95,8 +95,7 @@ device = pt.device('cuda')
 
 if(useStandardVIT):
 	def mainStandardViT():
-		print("mainStandardViT")
-
+		#print("mainStandardViT")
 		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
 
 		if(trainVITfromScratch):
@@ -147,6 +146,7 @@ else:
 
 if(useStandardVIT):
 	def trainOrTestStandardViT(train, dataLoader, VITmodel):
+		print("trainOrTestStandardViT: train = ", str(train))
 		if(train):
 			learningRate = 1e-4
 			VITmodel.train()
@@ -166,17 +166,20 @@ if(useStandardVIT):
 			desc="Test"
 			numberOfEpochs = 1
 
-		for epoch in tqdm(range(numberOfEpochs), desc=desc):
+		#for epoch in tqdm(range(numberOfEpochs), desc=desc):
+		for epoch in range(numberOfEpochs):
 			running_loss = 0.0
 			correct = 0
 			total = 0
-			print("epoch = ", epoch)
+			#print("epoch = ", epoch)
 			for batchIndex, batch in enumerate(tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False)):
-				print("batchIndex = ", batchIndex)
+				if(debugVerbose):
+					print("batchIndex = ", batchIndex)
 				if(databaseName == "ALOI-VIEW"):
 					imageIndices, viewIndices = batch
-					print("imageIndices = ", imageIndices)
-					print("viewIndices = ", viewIndices)
+					if(debugVerbose):
+						print("imageIndices = ", imageIndices)
+						print("viewIndices = ", viewIndices)
 					labels = imageIndices
 					imagePaths = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndices, viewIndices)
 				elif(databaseName == "MNIST"):
@@ -192,7 +195,8 @@ if(useStandardVIT):
 					transformedPatches = ATORpt_PTATOR.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
 				
 				artificialInputImages = generateArtificialInputImages(transformedPatches)	
-				print("labels = ", labels)
+				if(debugVerbose):
+					print("labels = ", labels)
 				if(train):
 					optimizer.zero_grad()
 					logits = VITmodel(artificialInputImages)
@@ -217,6 +221,7 @@ if(useStandardVIT):
 			print(f'Test Accuracy: {100*test_acc:.2f}%')
 else:
 	def trainOrTestCustomViT(train, dataLoader, ATORmodel, VITmodel, modelParameters):
+		print("trainOrTestCustomViT: train = ", str(train))
 		#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
 		if(train):
@@ -230,7 +235,8 @@ else:
 			testLoss = 0.0
 			desc="Test"
 			numberOfEpochs = 1
-		for epoch in tqdm(range(numberOfEpochs), desc=desc):
+		#for epoch in tqdm(range(numberOfEpochs), desc=desc):
+		for epoch in range(numberOfEpochs):
 			trainLoss = 0.0
 			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
 				if(databaseName == "MNIST"):
@@ -284,7 +290,8 @@ def generateArtificialInputImages(transformedPatches):
 	#transformedPatches shape: batchSize, ATORmaxNumberOfPolys, C, H, W
 	#artificialInputImages = pt.permute(0, 2, 1, 3, 4)	#shape: batchSize, C, ATORmaxNumberOfPolys, H, W
 	artificialInputImages = pt.reshape(transformedPatches, (batchSize, VITnumberOfChannels, VITimageSize, VITimageSize))	#CHECKTHIS (confirm ViT artificial image creation method)
-	print("artificialInputImages.shape = ", artificialInputImages.shape)
+	if(debugVerbose):
+		print("artificialInputImages.shape = ", artificialInputImages.shape)
 	return artificialInputImages			
 
 			

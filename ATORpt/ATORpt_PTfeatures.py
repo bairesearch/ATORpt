@@ -42,7 +42,8 @@ def getZoomValue(zoomIndex):
 	return zoom
 
 def featureDetectionCornerOpenCVHarris(image):
-	print("featureDetectionCornerOpenCVHarris:")
+	if(debugVerbose):
+		print("featureDetectionCornerOpenCVHarris:")
 	image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	image_float32 = np.float32(image)
 	dst = cv2.cornerHarris(image_float32, 2, 3, 0.04)	#cv2.cuda
@@ -52,14 +53,16 @@ def featureDetectionCornerOpenCVHarris(image):
 	return cornerFeatureList
 
 def featureDetectionCornerOpenCVShiTomasi(image):
-	print("featureDetectionCornerOpenCVShiTomasi:")
+	if(debugVerbose):
+		print("featureDetectionCornerOpenCVShiTomasi:")
 	image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 	image_float32 = np.float32(image)
 	dst = cv2.cornerMinEigenVal(image_float32, 3, 3, 3)	#cv2.cuda
 	#dst = dst.download()
 	
 	cornerFeatureList = extractFeatureCoordsFromFeatureMapSubpixel(dst, image)
-	print("cornerFeatureList = ", cornerFeatureList)
+	if(debugVerbose):
+		print("cornerFeatureList = ", cornerFeatureList)
 	return cornerFeatureList
 
 def extractFeatureCoordsFromFeatureMapSubpixel(dst, image):
@@ -71,7 +74,8 @@ def extractFeatureCoordsFromFeatureMapSubpixel(dst, image):
 	corners = cv2.cornerSubPix(image,np.float32(centroids),(5,5),(-1,-1),criteria)	#respects xAxisFeatureMap/yAxisFeatureMap
 	
 	cornerFeatures = pt.tensor(corners, dtype=pt.float32) 	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
-	print("cornerFeatures len = ", cornerFeatures.shape[0])
+	if(debugVerbose):
+		print("cornerFeatures len = ", cornerFeatures.shape[0])
 	
 	if(debugFeatureDetection):
 		printFeaturesArraySubpixel(corners, image)
@@ -100,7 +104,8 @@ def extractFeatureCoordsFromFeatureMap(dst, image):
 	#coords[:, 0] = -coords[: , 0] + imageHeight
 	
 	cornerFeatureList = [(coord[xAxisImages], coord[yAxisImages]) for coord in coords]	#store features as x, y - see xAxisFeatureMap/yAxisFeatureMap
-	print("len cornerFeatureList = ", len(cornerFeatureList))
+	if(debugVerbose):
+		print("len cornerFeatureList = ", len(cornerFeatureList))
 	
 	if(debugFeatureDetection):
 		printFeatureDetectionMap(dst, image, threshold)
@@ -116,7 +121,8 @@ def printFeatureDetectionMap(dst, image, threshold):
 def featureDetectionCentroidFBSegmentAnything(image):
 	#image (np.ndarray): The image to generate masks for, in HWC uint8 format
 	centroidFeatureList = []
-	print("featureDetectionCentroidFBSegmentAnything:")
+	if(debugVerbose):
+		print("featureDetectionCentroidFBSegmentAnything:")
 	sam = sam_model_registry["vit_h"](checkpoint=segmentAnythingViTHSAMpathName)	#default model type
 	mask_generator = SamAutomaticMaskGenerator(sam)
 	masks = mask_generator.generate(image)	#imageName
@@ -126,7 +132,8 @@ def featureDetectionCentroidFBSegmentAnything(image):
 	centroidFeatures = pt.tensor(centroidFeatureList, dtype=pt.float32)
 	if(debugFeatureDetection):
 		printFeatureListSubpixel(centroidFeatureList, image)
-	print("centroidFeatures len = ", centroidFeatures.shape[0])
+	if(debugVerbose):
+		print("centroidFeatures len = ", centroidFeatures.shape[0])
 	return centroidFeatures
 
 def calculateMaskCentroid(mask):

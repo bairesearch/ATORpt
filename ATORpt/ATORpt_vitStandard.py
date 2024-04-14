@@ -42,13 +42,14 @@ if(trainVITfromScratch):
 
 		def forward(self, x):
 			patches = self.patch_embedding(x)
-			print("patches.shape = ", patches.shape)
 			batch_size, _, h, w = patches.shape
 			patches = patches.view(batch_size, -1, h * w).permute(0, 2, 1)
-			print("patches.shape = ", patches.shape)
 			encoded_features = self.transformer_encoder(patches)
-			print("encoded_features.shape = ", encoded_features.shape)
 			logits = self.classification_head(encoded_features[:, 0])  # Use only the first token
+			if(debugVerbose):
+				print("patches.shape = ", patches.shape)
+				print("patches.shape = ", patches.shape)
+				print("encoded_features.shape = ", encoded_features.shape)
 			return logits
 else:
 	config = ViTConfig(

@@ -42,10 +42,12 @@ def generateATORpatches(use3DOD, imagePaths, train):
 	snapshotMeshPolyCoordinatesList = []
 	
 	for imageIndex, imagePath in enumerate(imagePaths):
-		print("imageIndex = ", imageIndex)
+		if(debugVerbose):
+			print("imageIndex = ", imageIndex)
 		imageKeypointCoordinatesZoomList = []
 		for zoomIndex in range(numberOfZoomLevels):
-			print("\tzoomIndex = ", zoomIndex)
+			if(debugVerbose):
+				print("\tzoomIndex = ", zoomIndex)
 			image, imageDepth = getImage(use3DOD, imagePath, applyZoom=True, zoomIndex=zoomIndex)
 			imageFeatureCoordinatesZoom = ATORpt_PTfeatures.featureDetection(image, zoomIndex)
 			imageKeypointCoordinatesZoom = ATORpt_PTkeypoints.performKeypointDetection(imageFeatureCoordinatesZoom)
@@ -96,7 +98,8 @@ def generateATORpatches(use3DOD, imagePaths, train):
 		meshCoordinates = snapshotMeshCoordinates
 		#snapshotMeshPolyCoordinates is not used by pytorch3D
 	
-	print("geoHashing start:")
+	if(debugVerbose):
+		print("geoHashing start:")
 	if(use3DOD):
 		transformedMeshCoordinates = ATORpt_PTgeometricHashing3DOD.performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=snapshotMeshValues, meshFaces=snapshotMeshFaces)
 	else:
@@ -105,13 +108,14 @@ def generateATORpatches(use3DOD, imagePaths, train):
 		renderViewportSize = renderViewportSize3DOD
 	else:
 		renderViewportSize = renderViewportSize2DOD
-	print("geoHashing complete")
+	if(debugVerbose):
+		print("geoHashing complete")
 	transformedPatches = ATORpt_PTrenderer.resamplePixelCoordinates(use3DOD, transformedMeshCoordinates, snapshotMeshValues, snapshotMeshFaces, renderViewportSize, renderImageSize, centreSnapshots=True)	#transformedSnapshotPixelCoordinates	#after debug; centreSnapshots=False
-	print("transformedPatches.shape = ", transformedPatches.shape)
+	#print("transformedPatches.shape = ", transformedPatches.shape)
 	numPatchesPerImage = transformedPatches.shape[0]//batchSize
 	transformedPatches = pt.reshape(transformedPatches, (batchSize, numPatchesPerImage, transformedPatches.shape[1], transformedPatches.shape[2], transformedPatches.shape[3]))	#shape: batchSize*ATORmaxNumberOfPolys, H, W, C
 	transformedPatches = pt.permute(transformedPatches, (0, 1, 4, 2, 3))	#shape: batchSize, ATORmaxNumberOfPolys, C, H, W
-	print("transformedPatches.shape = ", transformedPatches.shape)
+	#print("transformedPatches.shape = ", transformedPatches.shape)
 	
 	return transformedPatches
 
@@ -159,7 +163,8 @@ def getImage(use3DOD, imagePath, applyZoom=False, zoomIndex=-1):
 				
 def getImageCV(imagePath):
 	#shape = [Height, Width, Channels] where Channels is [Blue, Green, Red] (opencv standard)
-	print("imagePath = ", imagePath)
+	if(debugVerbose):
+		print("imagePath = ", imagePath)
 	image = cv2.imread(imagePath)
 	image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 	return image

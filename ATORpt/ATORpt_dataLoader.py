@@ -78,7 +78,7 @@ if(databaseName == "ALOI-VIEW"):
 		
 	def getALOIVIEWImagePath(imageIndices, viewIndices):
 		imagePathList = []
-		print("imageIndices.shape = ", imageIndices.shape)
+		#print("imageIndices.shape = ", imageIndices.shape)
 		for i in range(imageIndices.shape[0]):
 			imageIndex = imageIndices[i].item()+ALOIdatabaseImageStartIndex
 			viewIndex = viewIndices[i].item()
