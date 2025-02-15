@@ -1,16 +1,16 @@
 """ATORpt_RFapplyFilter.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt RF Filter - RF Filter transformations (pixel space)
@@ -18,7 +18,6 @@ ATORpt RF Filter - RF Filter transformations (pixel space)
 """
 
 import torch as pt
-import torch
 import torch.nn.functional as F
 import numpy as np
 import copy
@@ -86,6 +85,8 @@ def transformRFfilter2D(RFfilter, centerCoordinates, axesLength, angle):
 	angleRadians = ATORpt_RFoperations.convertDegreesToRadians(angle)
 	#print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
 	RFfilterTransformed = pta_image.rotate(RFfilterTransformed, angleRadians, fillValue=RFfilterImageTransformFillValue)
+	if(pta_image_rotate_doesNotSupportCUDA):
+		RFfilterTransformed = RFfilterTransformed.to(device)
 	centerCoordinatesList = [float(x) for x in list(centerCoordinates)]
 	RFfilterTransformed = pta_image.translate(RFfilterTransformed, centerCoordinatesList, fillValue=RFfilterImageTransformFillValue)
 	# print("axesLength = ", axesLength)

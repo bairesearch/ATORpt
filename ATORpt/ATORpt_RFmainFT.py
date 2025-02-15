@@ -1,7 +1,7 @@
-"""ATORpt_RFmain.py
+"""ATORpt_RFmainFT.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -10,10 +10,12 @@ MIT License
 See ATORpt_main.py
 
 # Usage:
-source activate pytorchsenv2
-python ATORpt_RFmain.py images/leaf1.png
+source activate pytorch3d
+python ATORpt_RFmainFT.py images/leaf1.png
 
 # Description:
+Perform ATOR receptive field (RF) ellipse detection using pytorch RF filters/masks (FT) (hardware accelerated).
+
 ATORpt RF is a receptive field implementation for ATOR feature/poly detection (ellipse centroids and tri corners)
 
 ATOR RF currently contains its own unique implementation stack, although RF feature detection can be merged into the main code base.
@@ -40,7 +42,7 @@ import torch as pt
 import torch.nn.functional as F
 
 from ATORpt_RFglobalDefs import *
-#import ATORpt_RFdetectEllipses
+#import ATORpt_RFmainCV
 import ATORpt_RFgenerate
 import ATORpt_RFapply
 
@@ -48,7 +50,7 @@ import ATORpt_RFapply
 @click.argument('inputimagefilename')
 			
 def main(inputimagefilename):
-	#ATORpt_RFdetectEllipses.main(inputimagefilename)
+	#ATORpt_RFmainCV.main(inputimagefilename)
 	RFfiltersListAllRes, RFfiltersPropertiesListAllRes, ATORneuronListAllLayers = ATORpt_RFgenerate.prepareRFhierarchyAccelerated()
 	ATORpt_RFapply.updateRFhierarchyAccelerated(RFfiltersListAllRes, RFfiltersPropertiesListAllRes, ATORneuronListAllLayers, inputimagefilename)	#trial image
 

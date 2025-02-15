@@ -1,7 +1,7 @@
 """ATORpt_PTrenderer.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License

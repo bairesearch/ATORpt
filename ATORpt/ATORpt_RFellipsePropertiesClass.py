@@ -1,16 +1,16 @@
 """ATORpt_RFellipsePropertiesClass.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt Ellipse (or Ellipsoid) Properties
@@ -30,7 +30,7 @@ class EllipsePropertiesClass():	#or EllipsoidProperties
 		self.centerCoordinates = centerCoordinates
 		self.axesLength = axesLength
 		self.angle = angle
-		self.colour = colour	#only used by ATORpt_RFdetectEllipses
+		self.colour = colour	#only used by ATORpt_RFmainCV
 		
 def normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor):
 	resolutionFactor = ellipseProperties.resolutionFactor

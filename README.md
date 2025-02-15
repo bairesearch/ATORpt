@@ -2,7 +2,7 @@
 
 ### Author
 
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 ### Description:
 
@@ -42,22 +42,6 @@ See ATOR specification: https://www.wipo.int/patentscope/search/en/WO2011088497
 Future:
 Requires upgrading to support3DOD:generate3DODfromParallax
 
-#### Description (ATOR RF):
-
-ATORpt RF is a receptive field implementation for ATOR feature/poly detection (ellipse centroids and tri corners)
-
-ATOR RF currently contains its own unique implementation stack, although RF feature detection can be merged into the main code base.
-
-ATORpt RF supports ellipsoid features (for centroid detection), and normalises them with respect to their major/minor ellipticity axis orientation. 
-There are a number of advantages of using ellipsoid features over point features;
-* the number of feature sets/normalised snapshots required is significantly reduced
-* scene component structure can be maintained (as detected component ellipses can be represented in a hierarchical graph structure)
-* features can still be detected where there are no point features available
-Ellipse features/components are detected based on simulated artificial receptive fields; RF (on/off, off/on).
-
-Future:
-Requires upgrading to support 3DOD receptive field detection (ellipses/ellipsoids/features in 3D space)
-
 ### License
 
 MIT License
@@ -75,7 +59,7 @@ pip install click
 pip install opencv-python opencv-contrib-python
 pip install kornia
 pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids only)
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFdetectEllipsesSA)
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
 ```
@@ -103,4 +87,63 @@ python3 ATORpt_RFmain.py
 
 * [Ranftl, R., Lasinger, K., Hafner, D., Schindler, K., & Koltun, V. (2020). Towards robust monocular depth estimation: Mixing datasets for zero-shot cross-dataset transfer. IEEE transactions on pattern analysis and machine intelligence, 44(3), 1623-1637.](https://arxiv.org/abs/1907.01341)
 * [Ranftl, R., Bochkovskiy, A., & Koltun, V. (2021). Vision transformers for dense prediction. In Proceedings of the IEEE/CVF international conference on computer vision (pp. 12179-12188).](https://arxiv.org/abs/2103.13413)
+
+
+------------------------------------------------------------------------
+
+# ATORpt_RF
+
+### Author
+
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
+
+### Description:
+
+ATORpt_RFmainFT: Perform ATOR receptive field (RF) ellipse detection using pytorch RF filters/masks (FT) (hardware accelerated).
+ATORpt_RFmainSA: Perform ATOR receptive field (RF) ellipse detection using segment-anything (SA) library (hardware accelerated) rather than RF filters.
+ATORpt_RFmainCV: Perform ATOR receptive field (RF) ellipse detection using open-cv (CV) library (non-hardware accelerated) rather than RF filters.
+
+ATORpt RF is a receptive field implementation for ATOR feature/poly detection (ellipse centroids and tri corners)
+
+ATOR RF currently contains its own unique implementation stack, although RF feature detection can be merged into the main code base.
+
+ATORpt RF supports ellipsoid features (for centroid detection), and normalises them with respect to their major/minor ellipticity axis orientation. 
+There are a number of advantages of using ellipsoid features over point features;
+* the number of feature sets/normalised snapshots required is significantly reduced
+* scene component structure can be maintained (as detected component ellipses can be represented in a hierarchical graph structure)
+* features can still be detected where there are no point features available
+Ellipse features/components are detected based on simulated artificial receptive fields; RF (on/off, off/on).
+
+Future:
+Requires upgrading to support 3DOD receptive field detection (ellipses/ellipsoids/features in 3D space)
+
+### License:
+
+MIT License
+
+### Installation:
+
+Same as ATORpt
+
+### Execution
+```
+source activate pytorch3d
+python ATORpt_RFmainFT.py images/leaf1.png
+
+source activate pytorch3d
+python ATORpt_RFmainSA.py images/leaf1.png
+
+source activate pytorch3d
+python ATORpt_RFmainCV.py images/leaf1.png
+```
+
+### Acknowledgements
+
+#### Segment Anything (ATORpt_RFdetectEllipsesSA)
+
+* [Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., ... & Girshick, R. (2023). Segment anything. In Proceedings of the IEEE/CVF International Conference on Computer Vision (pp. 4015-4026).](https://arxiv.org/abs/2304.02643)
+
+
+
+
 

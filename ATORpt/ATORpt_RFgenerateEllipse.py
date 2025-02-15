@@ -1,16 +1,16 @@
 """ATORpt_RFgenerateEllipse.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt RF Ellipse - generate ellipse receptive fields
@@ -183,7 +183,7 @@ def generateRFfilter(resolutionIndex, isColourFilter, RFpropertiesInside, RFprop
 
 	# generate ellipse on blank canvas
 	blankArray = np.full((RFpropertiesInside.imageSize[1], RFpropertiesInside.imageSize[0], rgbNumChannels), 0, np.uint8)  # rgb
-	RFfilterTF = pt.tensor(blankArray, dtype=pt.float32)
+	RFfilterTF = pt.tensor(blankArray, dtype=pt.float32, device=device)
 
 	RFfilterTF = ATORpt_RFgenerateDraw.drawRF(RFfilterTF, RFpropertiesInside, RFpropertiesOutside, ATORpt_RFpropertiesClass.RFfeatureTypeEllipse, False)
 

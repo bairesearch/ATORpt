@@ -1,7 +1,7 @@
 """ATORpt_main.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -20,7 +20,7 @@ pip install click
 pip install opencv-python opencv-contrib-python
 pip install kornia
 pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids only)
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFmainSA)
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
 

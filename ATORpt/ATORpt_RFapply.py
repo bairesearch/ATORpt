@@ -1,16 +1,16 @@
 """ATORpt_RFapply.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt RF apply

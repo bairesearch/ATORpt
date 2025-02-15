@@ -1,16 +1,16 @@
 """ATORpt_RFpropertiesClass.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt RF Properties - RF Properties transformations (primitive space: ellipse or tri/artificial ellipse)
@@ -113,7 +113,7 @@ def saveRFFilterImage(RFfilter, RFfilterImageFilename):
 	RFfilterImage = RFfilterImage * RFfilterMask
 	RFfilterImage = RFfilterImage * ATORpt_RFoperations.rgbMaxValue
 	RFfilterUint8 = RFfilterImage.type(pt.uint8)
-	RFfilterNP = RFfilterUint8.numpy()
+	RFfilterNP = RFfilterUint8.cpu().numpy()
 	ATORpt_RFoperations.saveImage(RFfilterImageFilename, RFfilterNP)
 
 def getFilterDimensions(resolutionProperties, maximumAxisLengthMultiplier=maximumAxisLengthMultiplierDefault, receptiveFieldOpponencyAreaFactor=receptiveFieldOpponencyAreaFactorEllipse):

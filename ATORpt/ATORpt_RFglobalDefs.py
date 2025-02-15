@@ -1,16 +1,16 @@
 """ATORpt_RFglobalDefs.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Description:
 ATORpt RF global definitions
@@ -18,6 +18,7 @@ ATORpt RF global definitions
 """
 import numpy as np
 import sys
+import torch as pt
 
 #optimisation / hardware acceleration 
 RFuseParallelProcessedCNN = True	#added 03 Mar 2024	#parallel processing implementation using CNN
@@ -34,7 +35,7 @@ else:
 	ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
 
 
-#****** ATORpt_RFmain ***********
+#****** ATORpt_RFmainFT ***********
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -86,7 +87,7 @@ lowResultFilterPosition = True
 #supportFractionalRFdrawSize = False	#floats unsupported by opencv ellipse draw - requires large draw, then resize down (interpolation)
 
 
-#****** ATORpt_RFdetectEllipses ***********
+#****** ATORpt_RFmainCV ***********
 
 ellipseResolutionIndexFirst = 1	#CHECKTHIS: ellipseResolutionIndexFirst = resolutionIndexFirst?
 ellipseNumberOfResolutions = 6	#x; lowest res sample: 1/(2^x)	#CHECKTHIS: ellipseNumberOfResolutions = numberOfResolutions?
@@ -112,7 +113,7 @@ RFfilterImageTransformFillValue = 0.0
 
 
 #****** ATORpt_RFoperations ***********
-opencvVersion = 3  # or 4
+opencvVersion = 4  # 3 or 4
 
 storeRFfiltersValuesAsFractions = True  # store RFfilters values as fractions (multipliers) rather than colours (additive)
 
@@ -207,5 +208,9 @@ pointFeatureAxisLengthOutside = (pointFeatureRFoutsideRadius, pointFeatureRFouts
 def printe(str):
 	print(str)
 	exit()
+
+pta_image_rotate_doesNotSupportCUDA = True	#pta_image.rotate() does not support CUDA?
+
+device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
 

@@ -1,7 +1,7 @@
 """ATORpt_globalDefs.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
@@ -32,14 +32,14 @@ pt.autograd.set_detect_anomaly(True)
 pt.set_default_tensor_type('torch.cuda.FloatTensor')
 
 #debug vars:
-debugVIT = False
+debugVIT = True
 debug3DODgeneration = False
 debugSingleZoomLevel = False
 debugProcessSingleImage = False
 debugSnapshotRenderFullImage = False	#draw original image to debug the renderer
 debugSnapshotRenderFinal = False	#draw final transformed snapshots to debug the renderer
 debugSnapshotRender = False	#draw intermediary transformed snapshots to debug the renderer
-debugGeometricHashingParallelFinal = False
+debugGeometricHashingParallelFinal = False	#verify that final transformation results in normalised snapshot (*)
 debugGeometricHashingParallel = False	#print intermediary transformed keypoints to debug the geometric hashing
 debugSnapshotRenderCroppedImage = False		#draw cropped images (preprocessing of untransformed snapshots) to debug the image coordinates generation for geometric hashing/rendering
 debugFeatureDetection = False	#print features on original images

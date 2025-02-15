@@ -1,19 +1,20 @@
-"""ATORpt_RFdetectEllipses.py
+"""ATORpt_RFmainCV.py
 
 # Author:
-Richard Bruce Baxter - Copyright (c) 2021-2024 Baxter AI (baxterai.com)
+Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 
 # License:
 MIT License
 
 # Installation:
-See ATORpt_RFmain.py
+See ATORpt_RFmainFT.py
 
 # Usage:
-python ATORpt_RFdetectEllipses.py images/leaf1.png
+source activate pytorch3d
+python ATORpt_RFmainCV.py images/leaf1.png
 
 # Description:
-Perform ATOR ellipse detection using open-cv library (non-hardware accelerated) rather than RF filters
+Perform ATOR receptive field (RF) ellipse detection using open-cv (CV) library (non-hardware accelerated) rather than RF filters.
 
 See [Vinmorel](https://github.com/vinmorel/Genetic-Algorithm-Image) for genetic algorithm implementation.
 
@@ -48,7 +49,8 @@ def detectEllipsesGaussianBlur(inputimagefilename):
 	
 	for resolutionIndex in range(ellipseResolutionIndexFirst, ellipseNumberOfResolutions):
 		
-		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
+		resolutionProperties = ATORpt_RFoperations.RFresolutionProperties(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
+		(resolutionFactor, resolutionFactorReverse, imageSize) = (resolutionProperties.resolutionFactor, resolutionProperties.resolutionFactorReverse, resolutionProperties.imageSize)
 	
 		#gaussianBlurKernelSize = (resolutionIndexReverse*2) - 1		
 		gaussianBlurKernelSize = (resolutionFactor*2) - 1	#ensure kernel size is odd
@@ -103,8 +105,9 @@ def detectEllipsesTrialResize(inputimagefilename):
 	
 	for resolutionIndex in range(ellipseResolutionIndexFirst, ellipseNumberOfResolutions):
 	
-		resolutionFactor, resolutionFactorReverse, imageSize = ATORpt_RFoperations.getImageDimensionsR(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
-
+		resolutionProperties = ATORpt_RFoperations.RFresolutionProperties(resolutionIndex, ellipseResolutionIndexFirst, ellipseNumberOfResolutions, inputImageSize)
+		(resolutionFactor, resolutionFactorReverse, imageSize) = (resolutionProperties.resolutionFactor, resolutionProperties.resolutionFactorReverse, resolutionProperties.imageSize)
+		
 		resolutionFactorInverse = 1.0/(resolutionFactor)
 		#print("resolutionIndex = ", resolutionIndex, ", resolutionFactor = ", resolutionFactor)
 		inputImageR = cv2.resize(inputImage, None, fx=resolutionFactorInverse, fy=resolutionFactorInverse)
@@ -169,6 +172,9 @@ def detectEllipsesTrialResize(inputimagefilename):
 		#quit()
 
 def gaussianBlur(inputImage, gaussianBlurKernelSize):
+	gaussianBlurKernelSize = int(gaussianBlurKernelSize)  # Ensure integer
+	gaussianBlurKernelSize = gaussianBlurKernelSize if gaussianBlurKernelSize % 2 == 1 else gaussianBlurKernelSize + 1  # Ensure odd
+	
 	result = cv2.GaussianBlur(src=inputImage, ksize=(gaussianBlurKernelSize,gaussianBlurKernelSize), sigmaX=20.0, borderType=cv2.BORDER_DEFAULT)
 	return result
 	
@@ -182,12 +188,15 @@ def calculateAverageColourOfContour(inputImageR, cnt):
 	return averageColour
 					
 
-#@click.command()
-#@click.argument('inputimagefilename')
-
 def main(inputimagefilename):
 	#detectEllipsesTrialResize(inputimagefilename)
 	detectEllipsesGaussianBlur(inputimagefilename)
 
-#if __name__ == "__main__":
-#	main()
+if __name__ == "__main__":
+
+	if len(sys.argv) < 2:
+		print("Usage: python ATORpt_RFmainSA.py <input_image>")
+		sys.exit(1)
+	input_image_path = sys.argv[1]
+	
+	main(input_image_path)
