@@ -85,10 +85,10 @@ def updateRFhierarchyAccelerated(RFfiltersListAllRes, RFfiltersPropertiesListAll
 	inputImageRGBSegmentsAllRes = []
 	inputImageGraySegmentsAllRes = []
 
-	if debugLowIterations:
-		resolutionIndexMax = 1
-	else:
+	if RFscaleImage:
 		resolutionIndexMax = numberOfResolutions
+	else:
+		resolutionIndexMax = 1
 
 	if(RFuseParallelProcessedCNN):
 		for resolutionIndex in range(resolutionIndexFirst, resolutionIndexMax):

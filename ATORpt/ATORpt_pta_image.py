@@ -25,12 +25,14 @@ import torch as pt
 import torchvision.transforms.functional as TF
 import torch.nn.functional as F
 import math
+pta_image_rotate_doesNotSupportCUDA = True
+device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
 def scale(image_tensor, scaleFactor, fillValue=0):
 	#scaleMatrix = [scaleFactor, 0.0, 0.0, 0.0, scaleFactor, 0.0, 0.0, 0.0]
 	#transformedImage = tfa.image.transform(image_tensor, scaleMatrix)	#https://www.tensorflow.org/api_docs/python/tf/image/resize
 	image_tensor = image_tensor.unsqueeze(0)
-	scale_matrix = pt.tensor([[scaleFactor, 0.0, 0.0], [0.0, scaleFactor, 0.0]])
+	scale_matrix = pt.tensor([[scaleFactor, 0.0, 0.0], [0.0, scaleFactor, 0.0]], device=device)
 	scale_matrix = scale_matrix.unsqueeze(0)
 	grid = F.affine_grid(scale_matrix, image_tensor.size())
 	transformed_image = F.grid_sample(image_tensor, grid)
@@ -40,7 +42,7 @@ def scale(image_tensor, scaleFactor, fillValue=0):
 def translate(image_tensor, centerCoordinatesList, fillValue=0):
 	#RFfilterTransformed = tfa_image.translate(image_tensor, centerCoordinatesList, fill_value=fillValue) 	#https://www.tensorflow.org/addons/api_docs/python/tfa/image/translate
 	image_tensor = image_tensor.unsqueeze(0)
-	translation_matrix = pt.tensor([[1, 0, centerCoordinatesList[0]], [0, 1, centerCoordinatesList[1]]], dtype=pt.float)
+	translation_matrix = pt.tensor([[1, 0, centerCoordinatesList[0]], [0, 1, centerCoordinatesList[1]]], dtype=pt.float, device=device)
 	translation_matrix = translation_matrix.unsqueeze(0)
 	grid = F.affine_grid(translation_matrix, image_tensor.size())
 	transformed_image = F.grid_sample(image_tensor, grid, padding_mode='border', align_corners=True)
@@ -52,6 +54,8 @@ def rotate(image_tensor, angleRadians, fillValue=0):
 	pil_image = TF.to_pil_image(image_tensor)
 	transformed_image = TF.rotate(pil_image, angleDegrees)
 	transformed_image = TF.to_tensor(transformed_image)
+	if(pta_image_rotate_doesNotSupportCUDA):
+		transformed_image = transformed_image.to(device)
 	'''
 	angleRadians = pt.tensor(angleRadians, dtype=pt.float)
 	image_tensor = image_tensor.unsqueeze(0)

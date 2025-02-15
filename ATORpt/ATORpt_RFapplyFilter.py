@@ -67,7 +67,7 @@ def normaliseRFfilter(RFfilter, RFproperties):
 def transformRFfilter(RFfilter, RFpropertiesParent):
 	if RFpropertiesParent.numberOfDimensions == 2:
 		centerCoordinates = [-RFpropertiesParent.centerCoordinates[0], -RFpropertiesParent.centerCoordinates[1]]
-		print("centerCoordinates = ", centerCoordinates)
+		#print("centerCoordinates = ", centerCoordinates)
 		axesLength = 1.0 / RFpropertiesParent.axesLength[0]  # [1.0/RFpropertiesParent.axesLength[0], 1.0/RFpropertiesParent.axesLength[1]]
 		angle = -RFpropertiesParent.angle
 		RFfilterTransformed = transformRFfilter2D(RFfilter, centerCoordinates, axesLength, angle)
@@ -85,8 +85,6 @@ def transformRFfilter2D(RFfilter, centerCoordinates, axesLength, angle):
 	angleRadians = ATORpt_RFoperations.convertDegreesToRadians(angle)
 	#print("RFfilterTransformed.shape = ", RFfilterTransformed.shape)
 	RFfilterTransformed = pta_image.rotate(RFfilterTransformed, angleRadians, fillValue=RFfilterImageTransformFillValue)
-	if(pta_image_rotate_doesNotSupportCUDA):
-		RFfilterTransformed = RFfilterTransformed.to(device)
 	centerCoordinatesList = [float(x) for x in list(centerCoordinates)]
 	RFfilterTransformed = pta_image.translate(RFfilterTransformed, centerCoordinatesList, fillValue=RFfilterImageTransformFillValue)
 	# print("axesLength = ", axesLength)

@@ -25,7 +25,10 @@ import numpy as np
 import torch as pt
 import matplotlib.pyplot as plt
 
+from ATORpt_RFglobalDefs import *
 import ATORpt_RFellipsePropertiesClass
+import ATORpt_RFoperations
+import ATORpt_RFapplyFilter
 
 from segment_anything import sam_model_registry, SamPredictor
 segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
@@ -34,22 +37,46 @@ device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
 
 def main(image_path):
-
-	#image_path = "images/IMG_0553SMALL.png"
-	sam_checkpoint = segmentAnythingViTHSAMpathName
-
 	# Read image
 	image_rgb = read_image(image_path)
 
+	resolutionIndexMax = numberOfResolutions
+	if RFscaleImage:
+		resolutionIndexMin = resolutionIndexFirst
+	else:
+		resolutionIndexMin = resolutionIndexMax
+	
+	ellipsePropertiesListAllRes = []
+	for resolutionIndex in range(resolutionIndexMin, resolutionIndexMax+1):
+		ellipsePropertiesList = detectRFs(image_rgb, resolutionIndex)
+		ellipsePropertiesListAllRes = ellipsePropertiesListAllRes + ellipsePropertiesList
+	
+	for ellipse in ellipsePropertiesListAllRes:
+		generateNormalisedImageSegment(ellipse, image_rgb)
+		
+
+def detectRFs(image_rgb, resolutionIndex):
+	inputImageHeight, inputImageWidth, inputImageChannels = image_rgb.shape
+	imageSizeBase = (inputImageWidth, inputImageHeight)
+	
+	resolutionProperties = ATORpt_RFoperations.RFresolutionProperties(resolutionIndex, resolutionIndexFirst, numberOfResolutions, imageSizeBase)
+	#print("resolutionIndex = ", resolutionIndex)
+	#print("resolutionProperties.resolutionFactor = ", resolutionProperties.resolutionFactor)
+	#print("resolutionProperties.imageSize = ", resolutionProperties.imageSize)
+
+	resizedImage = cv2.resize(image_rgb, resolutionProperties.imageSize, interpolation=cv2.INTER_LINEAR)
+
 	# Detect segments
-	features = detect_segments(image_rgb, sam_checkpoint=sam_checkpoint)
+	features = detect_segments(resizedImage, sam_checkpoint=segmentAnythingViTHSAMpathName)
 
 	# Detect ellipses
-	ellipses = detect_ellipses(features)
+	ellipsePropertiesList = detect_ellipses(features, resolutionProperties)
 	
 	# Draw original image + outline
-	draw_original_image_and_outline(image_rgb, features)
-
+	draw_original_image_and_outline(resizedImage, features)
+	
+	return ellipsePropertiesList
+	
 def read_image(image_path):
 	"""
 	2. Read an image file into memory (BGR with OpenCV).
@@ -157,7 +184,7 @@ def detect_segments(image_rgb, sam_checkpoint=None):
 	
 	return features
 
-def detect_ellipses(features):
+def detect_ellipses(features, resolutionProperties):
 	segment_points = features["segment_points"]
 	colour_points = features["colour_points"]
 	ellipsePropertiesList = []
@@ -165,22 +192,38 @@ def detect_ellipses(features):
 	for segment_index, segment_points_segment in enumerate(segment_points):
 		colour = colour_points[segment_index]
 		if len(segment_points_segment) >= 5:
+
 			ellipse = cv2.fitEllipse(segment_points_segment.astype(np.float32))
-			centerCoordinates, axesLength, angle = ellipse
+			centerCoordinates, axesLength, angle = rescaleEllipseCoordinates(ellipse, resolutionProperties)
 			ellipseProperties = ATORpt_RFellipsePropertiesClass.EllipsePropertiesClass(centerCoordinates, axesLength, angle, colour)
 			#inputImageRmod, ellipseFitError = ATORpt_RFellipsePropertiesClass.testEllipseApproximation(inputImageR, ellipseProperties)
 			ellipsePropertiesList.append(ellipseProperties)
-			
-			print("\nEllipse #", segment_index)
-			(cx, cy) = centerCoordinates
-			(majorAxis, minorAxis) = axesLength
-			print(f"Center: ({cx:.2f}, {cy:.2f})")
-			print(f"Major Axis: {majorAxis:.2f}")
-			print(f"Minor Axis: {minorAxis:.2f}")
-			print(f"Rotation Angle: {angle:.2f}")
-			print("colour = ", colour)
-			
+
+			if(debugVerbose):
+				print("\nEllipse #", segment_index)
+				(cx, cy) = centerCoordinates
+				(majorAxis, minorAxis) = axesLength
+				print(f"Center: ({cx:.2f}, {cy:.2f})")
+				print(f"Major Axis: {majorAxis:.2f}")
+				print(f"Minor Axis: {minorAxis:.2f}")
+				print(f"Rotation Angle: {angle:.2f}")
+				print("colour = ", colour)
+
 	return ellipsePropertiesList
+
+def rescaleEllipseCoordinates(ellipse, resolutionProperties):
+	centerCoordinates, axesLength, angle = ellipse
+	
+	(cx, cy) = centerCoordinates
+	(majorAxis, minorAxis) = axesLength
+	cx = cx*resolutionProperties.resolutionFactor
+	cy = cy*resolutionProperties.resolutionFactor
+	majorAxis = majorAxis*resolutionProperties.resolutionFactor
+	minorAxis = minorAxis*resolutionProperties.resolutionFactor
+	centerCoordinates = (cx, cy)
+	axesLength = (majorAxis, minorAxis)
+	
+	return centerCoordinates, axesLength, angle
 
 def draw_original_image_and_outline(image_rgb, features):
 
@@ -201,7 +244,40 @@ def draw_original_image_and_outline(image_rgb, features):
 
 	plt.axis("off")
 	plt.show(block=True)  # block=False so we can continue
+
+def generateNormalisedImageSegment(ellipse, image_rgb):
+	segmentRadius, segmentCoordinates = generateSegmentProperties(ellipse, image_rgb)
+	segmentImage = image_rgb[segmentCoordinates[0]-segmentRadius:segmentCoordinates[0]+segmentRadius, segmentCoordinates[1]-segmentRadius:segmentCoordinates[1]+segmentRadius]
+	#print("segmentRadius = ", segmentRadius)
+	#print("segmentCoordinates = ", segmentCoordinates)
+		
+	RFproperties = ellipse
+	RFproperties.numberOfDimensions = 2
+	RFproperties.centerCoordinates = (0.0, 0.0)	#segment image is already centred
+	RFfilter = pt.tensor(segmentImage, dtype=pt.float32, device=device)
+	RFfilterTransformed = ATORpt_RFapplyFilter.normaliseRFfilter(RFfilter, RFproperties)
+
+	return segmentImage
+
+def generateSegmentProperties(ellipse, image_rgb):
+	inputImageHeight, inputImageWidth, inputImageChannels = image_rgb.shape
+
+	segmentRadius = int(max(ellipse.axesLength[0], ellipse.axesLength[1])//2)	#take square region
+	segmentCoordinates = (int(ellipse.centerCoordinates[0]), int(ellipse.centerCoordinates[1]))
 	
+	#ensure segment radius does not go outside of image (crop);
+	if(segmentCoordinates[0]-segmentRadius < 0):
+		segmentRadius = segmentCoordinates[0]
+	if(segmentCoordinates[1]-segmentRadius < 1):
+		segmentRadius = segmentCoordinates[1]
+	if(segmentCoordinates[0]+segmentRadius > inputImageWidth):
+		segmentRadius = inputImageWidth-segmentCoordinates[0]
+	if(segmentCoordinates[1]+segmentRadius > inputImageHeight):
+		segmentRadius = inputImageHeight-segmentCoordinates[1]
+		
+	return segmentRadius, segmentCoordinates
+		
+
 if __name__ == "__main__":
 
 	if len(sys.argv) < 2:

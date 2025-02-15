@@ -20,27 +20,36 @@ import numpy as np
 import sys
 import torch as pt
 
-#optimisation / hardware acceleration 
-RFuseParallelProcessedCNN = True	#added 03 Mar 2024	#parallel processing implementation using CNN
-RFuseParallelProcessedCNNRFchannelsImplementation = 0
-if(RFuseParallelProcessedCNN):
-	RFdetectTriFeaturesSeparately = True	#detect tri features separately  - generate image segments (ie unnormalised snapshots) after forming tri polys from sets of these features	#ellipses already defined during feature kernel detection so original implementation generated image segments immediately 
-	ensureMinimumImageSizeGreaterThanRFsize = True	#required
-	RFuseParallelProcessedCNNRFasChannels = True
-	RFuseParallelProcessedCNNRFchannelsImplementation = 2	#apply separate CNN per RFfiltersTensor	#currently required by ATORpt_RFgenerateApply:applyRFfilters
-		#RFuseParallelProcessedCNNRFchannelsImplementation = 1	#apply separate CNN per RFfiltersFeatureTypeList #apply single CNN across all RF filters using channels (high GPU capacity required)	#not currently supported
-		#RFuseParallelProcessedCNNRFchannelsImplementation = 3	#apply separate CNN per RFfilter	#not currently supported
-else:
-	RFdetectTriFeaturesSeparately = False
-	ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
+#RFmethod = "FT"
+RFmethod = "SA"
+#RFmethod = "CV"
 
+if(RFmethod == "FT" or RFmethod == "CV"):
+	#optimisation / hardware acceleration 
+	RFuseParallelProcessedCNN = True	#added 03 Mar 2024	#parallel processing implementation using CNN
+	RFuseParallelProcessedCNNRFchannelsImplementation = 0
+	if(RFuseParallelProcessedCNN):
+		RFdetectTriFeaturesSeparately = True	#detect tri features separately  - generate image segments (ie unnormalised snapshots) after forming tri polys from sets of these features	#ellipses already defined during feature kernel detection so original implementation generated image segments immediately 
+		ensureMinimumImageSizeGreaterThanRFsize = True	#required
+		RFuseParallelProcessedCNNRFasChannels = True
+		RFuseParallelProcessedCNNRFchannelsImplementation = 2	#apply separate CNN per RFfiltersTensor	#currently required by ATORpt_RFgenerateApply:applyRFfilters
+			#RFuseParallelProcessedCNNRFchannelsImplementation = 1	#apply separate CNN per RFfiltersFeatureTypeList #apply single CNN across all RF filters using channels (high GPU capacity required)	#not currently supported
+			#RFuseParallelProcessedCNNRFchannelsImplementation = 3	#apply separate CNN per RFfilter	#not currently supported
+	else:
+		RFdetectTriFeaturesSeparately = False
+		ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
+	debugVerbose = False
+	RFscaleImage = True
+elif(RFmethod == "SA"):
+	RFdetectTriFeaturesSeparately = False
+	RFuseParallelProcessedCNN = False
+	ensureMinimumImageSizeGreaterThanRFsize = False
+	RFscaleImage = False	#not required with segment anything as overlapping segments are supported
+	debugVerbose = True
 
 #****** ATORpt_RFmainFT ***********
 
 np.set_printoptions(threshold=sys.maxsize)
-
-debugLowIterations = False
-debugVerbose = False
 
 #****** ATORpt_RFgenerate ***********
 
@@ -209,7 +218,6 @@ def printe(str):
 	print(str)
 	exit()
 
-pta_image_rotate_doesNotSupportCUDA = True	#pta_image.rotate() does not support CUDA?
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 

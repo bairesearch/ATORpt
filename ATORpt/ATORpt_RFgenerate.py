@@ -34,10 +34,10 @@ def prepareRFhierarchyAccelerated():
 	RFfiltersPropertiesListAllRes = []
 	ATORneuronListAllLayers = []
 
-	if debugLowIterations:
-		resolutionIndexMax = 1
-	else:
+	if RFscaleImage:
 		resolutionIndexMax = numberOfResolutions
+	else:
+		resolutionIndexMax = 1
 
 	for resolutionIndex in range(resolutionIndexFirst, resolutionIndexMax):
 		resolutionProperties = ATORpt_RFoperations.RFresolutionProperties(resolutionIndex, resolutionIndexFirst, numberOfResolutions, imageSizeBase)

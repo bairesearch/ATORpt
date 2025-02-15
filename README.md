@@ -127,12 +127,15 @@ Same as ATORpt
 
 ### Execution
 ```
+set RFmethod = "FT"
 source activate pytorch3d
 python ATORpt_RFmainFT.py images/leaf1.png
 
+set RFmethod = "SA"
 source activate pytorch3d
 python ATORpt_RFmainSA.py images/leaf1.png
 
+set RFmethod = "CV"
 source activate pytorch3d
 python ATORpt_RFmainCV.py images/leaf1.png
 ```
