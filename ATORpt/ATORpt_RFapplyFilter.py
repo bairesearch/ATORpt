@@ -21,6 +21,7 @@ import torch as pt
 import torch.nn.functional as F
 import numpy as np
 import copy
+import cv2
 
 from ATORpt_RFglobalDefs import *
 import ATORpt_pta_image as pta_image
@@ -121,4 +122,136 @@ def allFilterCoordinatesWithinImage(centerCoordinates, filterRadius, imageSize):
 		imageSegmentStart = (0, 0)
 		imageSegmentEnd = (filterRadius * 2, filterRadius * 2)
 	return result, imageSegmentStart, imageSegmentEnd
+
+
+		
+def crop_ellipse_area(image, ellipse_props, padding_ratio=0.5):
+	"""
+	Crop the region around the ellipse (with extra padding).
+	Return the cropped patch and the top-left corner of this patch in the original image.
+	"""
+
+	(xc, yc) = ellipse_props.centerCoordinates
+	(ax1, ax2) = ellipse_props.axesLength
+	angle = ellipse_props.angle
+	
+	# If you're sure ax1 >= ax2, then ax1 is major axis length, ax2 is minor axis.
+	# Otherwise, you might need to check and swap if needed:
+	# if ax2 > ax1: 
+	#	 ax1, ax2 = ax2, ax1  # swap so ax1 is always major, for clarity
+
+	# Create a RotatedRect (center, (width, height), angle)
+	# NOTE: OpenCV ellipse angle is measured from the X-axis in degrees.
+	# For cv2.ellipse or RotatedRect, the "size" is (axis_width, axis_height)
+	rot_rect = ((xc, yc), (ax1, ax2), angle)
+	
+	# Get the 4 corners of this rotated rectangle
+	box_points = cv2.boxPoints(rot_rect)  # returns 4 points
+	box_points = np.int0(box_points)	  # integer coords
+
+	# Compute the bounding rect of those points
+	x, y, w, h = cv2.boundingRect(box_points)
+
+	# Expand that bounding box by `padding_ratio` on each side
+	#  - "eg 50% padding" means we add 0.5 * w to the left/right and 0.5 * h to the top/bottom (split in half each side)
+	pad_w = int(w * padding_ratio)
+	pad_h = int(h * padding_ratio)
+
+	x1 = x - pad_w
+	y1 = y - pad_h
+	x2 = x + w + pad_w
+	y2 = y + h + pad_h
+
+	# Clip to image boundaries
+	H, W = image.shape[:2]
+	x1_clip = max(0, x1)
+	y1_clip = max(0, y1)
+	x2_clip = min(W, x2)
+	y2_clip = min(H, y2)
+
+	# Crop from the original image
+	cropped = image[y1_clip:y2_clip, x1_clip:x2_clip].copy()
+
+	# We now place this cropped region onto a black canvas of size (y2-y1, x2-x1)
+	out_h = (y2 - y1)
+	out_w = (x2 - x1)
+	patch = np.zeros((out_h, out_w, 3), dtype=image.dtype)
+
+	# The region within patch that corresponds to the actual image data
+	offset_x = x1_clip - x1  # how much we had to clip left
+	offset_y = y1_clip - y1  # how much we had to clip top
+
+	patch[offset_y:offset_y+cropped.shape[0], offset_x:offset_x+cropped.shape[1]] = cropped
+
+	# Return the patch, plus the top-left (x1,y1) so we know how to map back to original coords
+	return patch, (x1, y1)
+
+
+def transform_patch(patch, ellipse_props, patch_topleft):
+	"""
+	Rotate, translate, and scale the patch so that the ellipse becomes
+	a 100x100 circle in a 200x200 output image with center at (100,100).
+	
+	Returns the 200x200 transformed image.
+	"""
+	(xc, yc) = ellipse_props.centerCoordinates
+	(ax1, ax2) = ellipse_props.axesLength
+	angle_deg = ellipse_props.angle
+	
+	# Depending on your data, confirm which is major vs minor
+	majorAxis = ax1
+	minorAxis = ax2
+	# If not sure which is larger, do:
+	# majorAxis = max(ax1, ax2)
+	# minorAxis = min(ax1, ax2)
+	# but also note if the angle corresponds to the first or second axis in OpenCV's ellipse definition.
+
+	#print("angle_deg = ", angle_deg)
+	# Convert angle to radians for math
+	angle_rad = np.deg2rad(-angle_deg)	# negative for the rotation we want
+
+	# Patch coordinates of the ellipse center
+	(x1, y1) = patch_topleft
+	cx_patch = xc - x1
+	cy_patch = yc - y1
+
+	# Scale factors to turn ellipse into 100x100 circle
+	Sx = 100.0 / minorAxis
+	Sy = 100.0 / majorAxis
+
+	cosA = np.cos(angle_rad)
+	sinA = np.sin(angle_rad)
+	
+	# Build the 2x3 affine matrix M for warpAffine
+	# [ a11  a12  b1 ]
+	# [ a21  a22  b2 ]
+	
+	# After the shift-to-origin, rotate, scale, then translate to (100,100).
+	# x_out = Sx*( (x - cx_patch)*cosA - (y - cy_patch)*sinA ) + 100
+	# y_out = Sy*( (x - cx_patch)*sinA + (y - cy_patch)*cosA ) + 100
+
+	a11 =  Sx * cosA
+	a12 = -Sx * sinA
+	a21 =  Sy * sinA
+	a22 =  Sy * cosA
+
+	b1 = 100.0 - (a11*cx_patch + a12*cy_patch)
+	b2 = 100.0 - (a21*cx_patch + a22*cy_patch)
+
+	M = np.array([[a11, a12, b1],
+				  [a21, a22, b2]], dtype=np.float32)
+
+	# Warp into 200x200 with black padding
+	out_size = (200, 200)  # width, height
+	warped = cv2.warpAffine(
+		patch,
+		M,
+		out_size,
+		flags=cv2.INTER_LINEAR,
+		borderMode=cv2.BORDER_CONSTANT,
+		borderValue=(0, 0, 0)
+	)
+	
+	return warped
+
 

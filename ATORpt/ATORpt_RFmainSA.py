@@ -244,22 +244,45 @@ def draw_original_image_and_outline(image_rgb, features):
 
 	plt.axis("off")
 	plt.show(block=True)  # block=False so we can continue
+	
+def draw_image(patch_rgb, name):	
+	plt.figure(name, figsize=(8, 6))
+	plt.imshow(patch_rgb)
+	plt.title(name)
+	plt.axis("off")
+	plt.show(block=True)  # block=False so we can continue
+	
 
 def generateNormalisedImageSegment(ellipse, image_rgb):
-	segmentRadius, segmentCoordinates = generateSegmentProperties(ellipse, image_rgb)
-	segmentImage = image_rgb[segmentCoordinates[0]-segmentRadius:segmentCoordinates[0]+segmentRadius, segmentCoordinates[1]-segmentRadius:segmentCoordinates[1]+segmentRadius]
-	#print("segmentRadius = ", segmentRadius)
-	#print("segmentCoordinates = ", segmentCoordinates)
-		
+	
+	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
+	draw_image(patch, "patch_orig")
+	patch_transformed= ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
+	draw_image(patch_transformed, "patch_transformed")	#200x200 pixels, with the transformed ellipse (now circle) occupying the centre 100x100 pixels
+
+	'''
+	segmentImage, patch_topleft = generateSegment(ellipse, image_rgb)
 	RFproperties = ellipse
 	RFproperties.numberOfDimensions = 2
 	RFproperties.centerCoordinates = (0.0, 0.0)	#segment image is already centred
 	RFfilter = pt.tensor(segmentImage, dtype=pt.float32, device=device)
 	RFfilterTransformed = ATORpt_RFapplyFilter.normaliseRFfilter(RFfilter, RFproperties)
+	'''
+	
+	return patch_transformed
 
-	return segmentImage
 
-def generateSegmentProperties(ellipse, image_rgb):
+if __name__ == "__main__":
+
+	if len(sys.argv) < 2:
+		print("Usage: python ATORpt_RFmainSA.py <input_image>")
+		sys.exit(1)
+	input_image_path = sys.argv[1]
+	
+	main(input_image_path)
+
+
+def generateSegment(ellipse, image_rgb):
 	inputImageHeight, inputImageWidth, inputImageChannels = image_rgb.shape
 
 	segmentRadius = int(max(ellipse.axesLength[0], ellipse.axesLength[1])//2)	#take square region
@@ -274,16 +297,11 @@ def generateSegmentProperties(ellipse, image_rgb):
 		segmentRadius = inputImageWidth-segmentCoordinates[0]
 	if(segmentCoordinates[1]+segmentRadius > inputImageHeight):
 		segmentRadius = inputImageHeight-segmentCoordinates[1]
-		
-	return segmentRadius, segmentCoordinates
-		
-
-if __name__ == "__main__":
-
-	if len(sys.argv) < 2:
-		print("Usage: python ATORpt_RFmainSA.py <input_image>")
-		sys.exit(1)
-	input_image_path = sys.argv[1]
 	
-	main(input_image_path)
+	#print("segmentRadius = ", segmentRadius)
+	#print("segmentCoordinates = ", segmentCoordinates)
+	
+	patch_topleft = segmentCoordinates[0]-segmentRadius, segmentCoordinates[1]-segmentRadius
+	segmentImage = image_rgb[segmentCoordinates[0]-segmentRadius:segmentCoordinates[0]+segmentRadius, segmentCoordinates[1]-segmentRadius:segmentCoordinates[1]+segmentRadius]
 
+	return segmentImage, patch_topleft
