@@ -22,6 +22,8 @@ import torch.nn.functional as F
 import numpy as np
 import copy
 import cv2
+import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 
 from ATORpt_RFglobalDefs import *
 import ATORpt_pta_image as pta_image
@@ -132,18 +134,21 @@ def crop_ellipse_area(image, ellipse_props, padding_ratio=0.5):
 	"""
 
 	(xc, yc) = ellipse_props.centerCoordinates
-	(ax1, ax2) = ellipse_props.axesLength
-	angle = ellipse_props.angle
-	
-	# If you're sure ax1 >= ax2, then ax1 is major axis length, ax2 is minor axis.
-	# Otherwise, you might need to check and swap if needed:
-	# if ax2 > ax1: 
-	#	 ax1, ax2 = ax2, ax1  # swap so ax1 is always major, for clarity
+	# Force majorAxis >= minorAxis
+	majorAxis = ellipse_props.axesLength[0]
+	minorAxis = ellipse_props.axesLength[1]
 
-	# Create a RotatedRect (center, (width, height), angle)
-	# NOTE: OpenCV ellipse angle is measured from the X-axis in degrees.
-	# For cv2.ellipse or RotatedRect, the "size" is (axis_width, axis_height)
-	rot_rect = ((xc, yc), (ax1, ax2), angle)
+	if(RFalwaysDefineEllipseMajorAxisAsFirst):
+		angle_deg_cv = ellipse_props.angle - 90	#CHECKTHIS
+	else:
+		if minorAxis > majorAxis:
+			majorAxis, minorAxis = minorAxis, majorAxis
+		angle_deg_cv = ellipse_props.angle
+		
+	# Build a RotatedRect for the bounding box
+	# RotatedRect expects (width, height) = (majorAxis, minorAxis) 
+	# with angle measured from x-axis
+	rot_rect = ((xc, yc), (majorAxis, minorAxis), angle_deg_cv)
 	
 	# Get the 4 corners of this rotated rectangle
 	box_points = cv2.boxPoints(rot_rect)  # returns 4 points
@@ -195,25 +200,35 @@ def transform_patch(patch, ellipse_props, patch_topleft):
 	Returns the 200x200 transformed image.
 	"""
 	(xc, yc) = ellipse_props.centerCoordinates
-	(ax1, ax2) = ellipse_props.axesLength
-	angle_deg = ellipse_props.angle
-	
-	# Depending on your data, confirm which is major vs minor
-	majorAxis = ax1
-	minorAxis = ax2
-	# If not sure which is larger, do:
-	# majorAxis = max(ax1, ax2)
-	# minorAxis = min(ax1, ax2)
-	# but also note if the angle corresponds to the first or second axis in OpenCV's ellipse definition.
-
-	#print("angle_deg = ", angle_deg)
-	# Convert angle to radians for math
-	angle_rad = np.deg2rad(-angle_deg)	# negative for the rotation we want
-
-	# Patch coordinates of the ellipse center
 	(x1, y1) = patch_topleft
 	cx_patch = xc - x1
 	cy_patch = yc - y1
+	majorAxis = ellipse_props.axesLength[0]
+	minorAxis = ellipse_props.axesLength[1]
+	
+	if(RFalwaysDefineEllipseMajorAxisAsFirst):
+		if(RFalwaysRotateWrtMajorEllipseAxis):
+			angle_deg_cv = ellipse_props.angle - 90
+		else:
+			angle_deg_cv = ellipse_props.angle - 90
+
+			# Fold angle into [-45, +45] by ±90 if needed
+			if angle_deg_cv > 45:
+				# rotate it by -90 to bring it back near vertical
+				angle_deg_cv -= 90
+				# also swap major/minor, because we effectively "rotated" the ellipse
+				majorAxis, minorAxis = minorAxis, majorAxis
+			elif angle_deg_cv < -45:
+				# rotate it by +90
+				angle_deg_cv += 90
+				# swap
+				majorAxis, minorAxis = minorAxis, majorAxis
+	else:
+		if minorAxis > majorAxis:
+			majorAxis, minorAxis = minorAxis, majorAxis
+		angle_deg_cv = ellipse_props.angle
+	
+	angle_rad = np.deg2rad(-angle_deg_cv)	# negative for the rotation we want
 
 	# Scale factors to turn ellipse into 100x100 circle
 	Sx = 100.0 / minorAxis
@@ -253,5 +268,70 @@ def transform_patch(patch, ellipse_props, patch_topleft):
 	)
 	
 	return warped
+
+
+def draw_patch_with_ellipse(patch_rgb, ellipse, patch_topleft, title_str="Untransformed Patch"):
+	"""
+	patch_rgb: the cropped patch (H x W x 3) from your image.
+	ellipse:   your EllipsePropertiesClass containing centerCoordinates, axesLength, angle.
+	patch_topleft: (x1, y1) top-left corner in original image coords,
+				   so we can compute the ellipse center in patch coords.
+	title_str:   for the matplotlib window title.
+	"""
+	fig, ax = plt.subplots(figsize=(6,6))
+	ax.imshow(patch_rgb)
+	ax.set_title(title_str)
+	ax.axis("off")
+	
+	# Convert ellipse center to patch-local coords
+	cx_orig, cy_orig = ellipse.centerCoordinates  # (x, y) in original
+	x1, y1 = patch_topleft
+	
+	local_cx = cx_orig - x1
+	local_cy = cy_orig - y1
+	
+	# majorAxis, minorAxis
+	major_axis = ellipse.axesLength[0]
+	minor_axis = ellipse.axesLength[1]
+	
+	if(RFalwaysRotateWrtMajorEllipseAxis):
+		angle_deg_cv = ellipse.angle - 90
+	else:
+		angle_deg_cv = ellipse.angle - 90
+	e = Ellipse(
+		(local_cx, local_cy),  # (x_center, y_center) in the patch
+		width=minor_axis,	  # Ellipse patch 'width' is the minor dimension
+		height=major_axis,	 # Ellipse patch 'height' is the major dimension
+		angle=angle_deg_cv,	  # in degrees, CCW from x-axis
+		fill=False,
+		edgecolor='red',
+		linewidth=2
+	)
+	ax.add_patch(e)
+	plt.show(block=True)
+
+
+def draw_patch_with_circle(patch_rgb, center=(100,100), diameter=100, title_str="Transformed Patch"):
+	"""
+	Overlays a circle of 'diameter' onto patch_rgb, drawn in matplotlib.
+	By default, we place the circle's center at (100,100).
+	"""
+	fig, ax = plt.subplots(figsize=(6,6))
+	ax.imshow(patch_rgb)
+	ax.set_title(title_str)
+	ax.axis("off")
+	
+	# In matplotlib, an Ellipse with width=height=diameter and angle=0 is a circle
+	circ = Ellipse(
+		center,			 # (x_center, y_center)
+		width=diameter,	 # circle diameter
+		height=diameter,
+		angle=0,
+		fill=False,
+		edgecolor='blue',
+		linewidth=2
+	)
+	ax.add_patch(circ)
+	plt.show(block=True)
 
 

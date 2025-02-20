@@ -7,7 +7,7 @@ Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_RFmainFT.py
+See ATORpt_main.py
 
 # Usage:
 source activate pytorch3d

@@ -7,7 +7,7 @@ Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-See ATORpt_RFmainFT.py
+See ATORpt_main.py
 
 # Usage:
 source activate pytorch3d
@@ -230,16 +230,27 @@ def detect_ellipses(features, resolutionProperties):
 
 def rescaleEllipseCoordinates(ellipse, resolutionProperties):
 	centerCoordinates, axesLength, angle = ellipse
-	
+
+	if(RFalwaysDefineEllipseMajorAxisAsFirst):
+		#correct for cv2.fitEllipse discrepancy;
+		# Ensure majorAxis is always greater than minorAxis
+		majorAxis, minorAxis = max(axesLength), min(axesLength)
+		# Adjust the angle if OpenCV mislabels the axes
+		if axesLength[0] > axesLength[1]:  # If OpenCV got it right, keep angle as is
+			angle = angle
+		else:  # If OpenCV swapped major/minor, adjust by 90 degrees
+			angle = (angle + 90) % 180
+	else:
+		(majorAxis, minorAxis) = axesLength
+		
 	(cx, cy) = centerCoordinates
-	(majorAxis, minorAxis) = axesLength
 	cx = cx*resolutionProperties.resolutionFactor
 	cy = cy*resolutionProperties.resolutionFactor
 	majorAxis = majorAxis*resolutionProperties.resolutionFactor
 	minorAxis = minorAxis*resolutionProperties.resolutionFactor
 	centerCoordinates = (cx, cy)
 	axesLength = (majorAxis, minorAxis)
-	
+		
 	return centerCoordinates, axesLength, angle
 
 def draw_original_image_and_outline(image_rgb, features):
@@ -270,12 +281,24 @@ def draw_image(patch_rgb, name):
 	plt.show(block=True)  # block=False so we can continue
 	
 
+'''
 def generateNormalisedImageSegment(ellipse, image_rgb):
 	
 	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
 	draw_image(patch, "patch_orig")
 	patch_transformed= ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
 	draw_image(patch_transformed, "patch_transformed")	#200x200 pixels, with the transformed ellipse (now circle) occupying the centre 100x100 pixels
+'''
+
+def generateNormalisedImageSegment(ellipse, image_rgb):
+	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
+	ATORpt_RFapplyFilter.draw_patch_with_ellipse(patch, ellipse, patch_topleft, title_str="patch_orig")
+
+	patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
+	ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(100,100), diameter=100, title_str="patch_transformed")
+	
+	return patch_transformed
+
 
 	'''
 	segmentImage, patch_topleft = generateSegment(ellipse, image_rgb)

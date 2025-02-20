@@ -45,6 +45,9 @@ elif(RFmethod == "SA"):
 	RFuseParallelProcessedCNN = False
 	ensureMinimumImageSizeGreaterThanRFsize = False
 	RFscaleImage = False	#not required with segment anything as overlapping segments are supported
+	RFalwaysDefineEllipseMajorAxisAsFirst = True	#mandatory
+	if(RFalwaysDefineEllipseMajorAxisAsFirst):
+		RFalwaysRotateWrtMajorEllipseAxis = False	#default:False
 	debugVerbose = True
 
 #****** ATORpt_RFmainFT ***********

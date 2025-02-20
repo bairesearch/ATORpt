@@ -27,9 +27,9 @@ import ATORpt_RFoperations
 
 class EllipsePropertiesClass():	#or EllipsoidProperties
 	def __init__(self, centerCoordinates, axesLength, angle, colour):
-		self.centerCoordinates = centerCoordinates
-		self.axesLength = axesLength
-		self.angle = angle
+		self.centerCoordinates = centerCoordinates  # (x_center, y_center)
+		self.axesLength = axesLength				# (majorAxis, minorAxis) 
+		self.angle = angle						  # angle in your data (counterclockwise wrt majorAxis)	#This is measured from the horizontal axis to the major axis, counterclockwise.
 		self.colour = colour	#only used by ATORpt_RFmainCV
 		
 def normaliseGlobalEllipseProperties(ellipseProperties, resolutionFactor):
