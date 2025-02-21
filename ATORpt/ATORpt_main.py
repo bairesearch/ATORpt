@@ -42,7 +42,7 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 		- perform independent, parallelised target prediction of object triangle data
 - !useEndToEndNeuralModel (useStandardVIT)
 	- useATORRFparallel
-		- uses ATOR RT to generate normalised snapshots
+		- uses ATOR RF to generate normalised snapshots
 	- useATORPTparallel:
 		- uses parallel pytorch ATOR implementation
 		- support corner/centroid features of the ATOR specification using third party libraries
@@ -80,13 +80,10 @@ import ATORpt_dataLoader
 if(useStandardVIT):
 	import ATORpt_vitStandard
 	if(useATORRFparallel):
-		#from ATORpt_RFglobalDefs import *
 		import ATORpt_RFmainSA
 	elif(useATORPTparallel):
-		#from ATORpt_PTglobalDefs import *
 		import ATORpt_PTATOR
 	elif(useATORCPPserial):
-		#from ATORpt_PTglobalDefs import *
 		import ATORpt_CPPATOR
 	import torch.optim as optim
 	from torchvision import transforms, datasets
@@ -189,12 +186,14 @@ if(useStandardVIT):
 						print("viewIndices = ", viewIndices)
 					labels = imageIndices
 					imagePaths = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndices, viewIndices)
+					if(debugVerbose):
+						print("imagePaths = ", imagePaths)
 				elif(databaseName == "MNIST"):
 					x, y = batch
 					x, y = x.to(device), y.to(device)
 					imagesLarge = x
 					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
-
+					
 				if(useATORRFparallel):
 					transformedPatches = ATORpt_RFmainSA.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
 				elif(useATORPTparallel):
@@ -296,9 +295,10 @@ else:
 			print(f"Test accuracy: {correct / total * 100:.2f}%")
 
 def generateArtificialInputImages(transformedPatches):
+	batchSizeDynamic = transformedPatches.shape[0]
 	#transformedPatches shape: batchSize, ATORmaxNumberOfPolys, C, H, W
 	#artificialInputImages = pt.permute(0, 2, 1, 3, 4)	#shape: batchSize, C, ATORmaxNumberOfPolys, H, W
-	artificialInputImages = pt.reshape(transformedPatches, (batchSize, VITnumberOfChannels, VITimageSize, VITimageSize))	#CHECKTHIS (confirm ViT artificial image creation method)
+	artificialInputImages = pt.reshape(transformedPatches, (batchSizeDynamic, VITnumberOfChannels, VITimageSize, VITimageSize))	#CHECKTHIS (confirm ViT artificial image creation method)
 	if(debugVerbose):
 		print("artificialInputImages.shape = ", artificialInputImages.shape)
 	return artificialInputImages			

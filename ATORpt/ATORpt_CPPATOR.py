@@ -23,7 +23,7 @@ import subprocess
 from PIL import Image
 from torchvision import transforms
 
-from ATORpt_PTglobalDefs import *
+from ATORpt_CPPglobalDefs import *
 
 supportFolderGeneration = False	#rely on ATOR cpp implementation to generate folder structure
 

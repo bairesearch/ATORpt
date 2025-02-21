@@ -16,6 +16,8 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 	- supports classification of 2D image snapshots recreated from transformed mesh coordinates
 		- perform independent, parallelised target prediction of object triangle data
 - !useEndToEndNeuralModel (useStandardVIT)
+	- useATORRFparallel
+		- uses ATOR RF to generate normalised snapshots
 	- useATORPTparallel:
 		- uses parallel pytorch ATOR implementation
 		- support corner/centroid features of the ATOR specification using third party libraries

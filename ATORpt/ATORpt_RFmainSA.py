@@ -48,7 +48,6 @@ import ATORpt_RFoperations
 import ATORpt_RFapplyFilter
 
 from segment_anything import sam_model_registry, SamPredictor
-segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
@@ -122,7 +121,7 @@ def detectRFs(image_rgb, resolutionIndex):
 	resizedImage = cv2.resize(image_rgb, resolutionProperties.imageSize, interpolation=cv2.INTER_LINEAR)
 
 	# Detect segments
-	features = detect_segments(resizedImage, sam_checkpoint=segmentAnythingViTHSAMpathName)
+	features = detect_segments(resizedImage)
 
 	# Detect ellipses
 	ellipsePropertiesList = detect_ellipses(features, resolutionProperties)
@@ -164,7 +163,7 @@ def compute_contrast_map(image_rgb, method='laplacian', ksize=3):
 	image_contrast = cv2.normalize(image_contrast, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 	return image_contrast
 	
-def detect_segments(image_rgb, sam_checkpoint=None):
+def detect_segments(image_rgb):
 
 	height, width, _ = image_rgb.shape
 	
@@ -173,17 +172,14 @@ def detect_segments(image_rgb, sam_checkpoint=None):
 	
 	# use Segment Anything to get segment masks
 	masks = []
-	if sam_checkpoint is not None:
-		sam = sam_model_registry["vit_h"](checkpoint=sam_checkpoint)
-		sam.to(device)
-		predictor = SamPredictor(sam)
-		predictor.set_image(image_rgb)
-		from segment_anything import SamAutomaticMaskGenerator
-		mask_generator = SamAutomaticMaskGenerator(sam)
-		masks = mask_generator.generate(image_rgb)
-	else:
-		print("detect_segments error: SAM checkpoint not provided.")
-	
+	sam = sam_model_registry[segmentAnythingViTHSAMname](checkpoint=segmentAnythingViTHSAMpathName)
+	sam.to(device)
+	predictor = SamPredictor(sam)
+	predictor.set_image(image_rgb)
+	from segment_anything import SamAutomaticMaskGenerator
+	mask_generator = SamAutomaticMaskGenerator(sam)
+	masks = mask_generator.generate(image_rgb)
+
 	segment_points = []
 	edge_points = []
 	centroid_points = []

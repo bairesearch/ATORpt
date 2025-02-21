@@ -23,7 +23,6 @@ import math
 import os
 
 
-
 #****** algorithm selection parameters ***********
 
 useEndToEndNeuralModel = False
@@ -75,14 +74,12 @@ if(support3DOD):
 	ATOR3DODgeoHashingScale = False	#!ATOR3DODgeoHashingScale is orig ATOR 3DOD implementation (will create full mesh snapshots rather than object triangle snapshots)
 	
 	
-
 #****** database parameters ***********
 
 userName = 'systemusername'	#default: systemusername
 if(os.path.isdir('user')):
 	from user.user_globalDefs import *
 	
-
 if(useEndToEndNeuralModel):
 	databaseName = "MNIST"
 else:
@@ -92,6 +89,7 @@ else:
 		databaseName = "ALOI-VIEW"	#"MNIST"	#optional
 	elif(useATORCPPserial):
 		databaseName = "ALOI-VIEW"
+	
 if(databaseName == "ALOI-VIEW"):
 	databaseRoot = "/media/" + userName + "/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
@@ -142,7 +140,6 @@ else:
 trainNumberOfEpochs = 10	#10	#1
 
 
-
 #****** ViT parameters ***********
 
 if(databaseName == "ALOI-VIEW"):
@@ -150,7 +147,7 @@ if(databaseName == "ALOI-VIEW"):
 		batchSize = 1
 	else:
 		if(useATORRFparallel):
-			batchSize = 2 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
+			batchSize = 8 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
 		elif(useATORPTparallel):
 			batchSize = 2 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
 		elif(useATORCPPserial):
@@ -219,6 +216,15 @@ yAxisImages = 0
 #matplotlib imshow assumes y,x,c; opencv->tensor assumes c,y,x, TFPIL->tensor assumes c,y,x)
 
 
+#****** segment-anything parameters ***********
+
+segmentAnythingViTHSAMname = "vit_h"	#default
+segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_h_4b8939.pth"	#default
+#segmentAnythingViTHSAMname = "vit_l"	#lower GPU memory
+#segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_l_0b3195.pth"
+#segmentAnythingViTHSAMname = "vit_b"	#lower GPU memory
+#segmentAnythingViTHSAMpathName = "../segmentAnythingViTHSAM/sam_vit_b_01ec64.pth"
+
 
 #****** pytorch parameters ***********
 
@@ -231,7 +237,6 @@ if(pt.cuda.is_available()):
 else:
 	device = pt.device("cpu")
 devicePreprocessing = pt.device("cuda")	#orig: pt.device("cpu")  #image preprocessing transformation operations are currently performed on GPU/CPU
-
 
 useLovelyTensors = True
 if(useLovelyTensors):

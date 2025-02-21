@@ -123,7 +123,7 @@ def featureDetectionCentroidFBSegmentAnything(image):
 	centroidFeatureList = []
 	if(debugVerbose):
 		print("featureDetectionCentroidFBSegmentAnything:")
-	sam = sam_model_registry["vit_h"](checkpoint=segmentAnythingViTHSAMpathName)	#default model type
+	sam = sam_model_registry[segmentAnythingViTHSAMname](checkpoint=segmentAnythingViTHSAMpathName)	#default model type
 	mask_generator = SamAutomaticMaskGenerator(sam)
 	masks = mask_generator.generate(image)	#imageName
 	for segmentationIndex, segmentationMask in enumerate(masks):
