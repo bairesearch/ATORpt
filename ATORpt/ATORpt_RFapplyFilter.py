@@ -195,9 +195,11 @@ def crop_ellipse_area(image, ellipse_props, padding_ratio=0.5):
 def transform_patch(patch, ellipse_props, patch_topleft):
 	"""
 	Rotate, translate, and scale the patch so that the ellipse becomes
-	a 100x100 circle in a 200x200 output image with center at (100,100).
-	
-	Returns the 200x200 transformed image.
+	a RFpatchCircleWidth x RFpatchCircleWidth circle in a RFpatchWidth x RFpatchWidth output image with center at RFpatchCircleOffset x RFpatchCircleOffset.
+	eg a 100x100 circle in a 200x200 output image with center at (100,100)
+
+	Returns the RFpatchWidth x RFpatchWidth transformed image.
+	eg returns a 200x200 transformed image.
 	"""
 	(xc, yc) = ellipse_props.centerCoordinates
 	(x1, y1) = patch_topleft
@@ -230,9 +232,9 @@ def transform_patch(patch, ellipse_props, patch_topleft):
 	
 	angle_rad = np.deg2rad(-angle_deg_cv)	# negative for the rotation we want
 
-	# Scale factors to turn ellipse into 100x100 circle
-	Sx = 100.0 / minorAxis
-	Sy = 100.0 / majorAxis
+	# Scale factors to turn ellipse into RFpatchCircleWidth x RFpatchCircleWidth circle, eg 100x100
+	Sx = float(RFpatchCircleWidth) / minorAxis
+	Sy = float(RFpatchCircleWidth) / majorAxis
 
 	cosA = np.cos(angle_rad)
 	sinA = np.sin(angle_rad)
@@ -241,23 +243,23 @@ def transform_patch(patch, ellipse_props, patch_topleft):
 	# [ a11  a12  b1 ]
 	# [ a21  a22  b2 ]
 	
-	# After the shift-to-origin, rotate, scale, then translate to (100,100).
-	# x_out = Sx*( (x - cx_patch)*cosA - (y - cy_patch)*sinA ) + 100
-	# y_out = Sy*( (x - cx_patch)*sinA + (y - cy_patch)*cosA ) + 100
+	# After the shift-to-origin, rotate, scale, then translate to (RFpatchCircleOffset,RFpatchCircleOffset), eg (100,100).
+	# x_out = Sx*( (x - cx_patch)*cosA - (y - cy_patch)*sinA ) + RFpatchCircleOffset
+	# y_out = Sy*( (x - cx_patch)*sinA + (y - cy_patch)*cosA ) + RFpatchCircleOffset
 
 	a11 =  Sx * cosA
 	a12 = -Sx * sinA
 	a21 =  Sy * sinA
 	a22 =  Sy * cosA
 
-	b1 = 100.0 - (a11*cx_patch + a12*cy_patch)
-	b2 = 100.0 - (a21*cx_patch + a22*cy_patch)
+	b1 = float(RFpatchCircleOffset) - (a11*cx_patch + a12*cy_patch)
+	b2 = float(RFpatchCircleOffset) - (a21*cx_patch + a22*cy_patch)
 
 	M = np.array([[a11, a12, b1],
 				  [a21, a22, b2]], dtype=np.float32)
 
-	# Warp into 200x200 with black padding
-	out_size = (200, 200)  # width, height
+	# Warp into RFpatchWidth x RFpatchWidth (eg 200x200) with black padding
+	out_size = (RFpatchWidth, RFpatchWidth)  # width, height
 	warped = cv2.warpAffine(
 		patch,
 		M,
@@ -311,7 +313,7 @@ def draw_patch_with_ellipse(patch_rgb, ellipse, patch_topleft, title_str="Untran
 	plt.show(block=True)
 
 
-def draw_patch_with_circle(patch_rgb, center=(100,100), diameter=100, title_str="Transformed Patch"):
+def draw_patch_with_circle(patch_rgb, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="Transformed Patch"):
 	"""
 	Overlays a circle of 'diameter' onto patch_rgb, drawn in matplotlib.
 	By default, we place the circle's center at (100,100).

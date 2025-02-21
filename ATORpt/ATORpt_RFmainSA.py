@@ -54,6 +54,23 @@ device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
 
 def main(image_path):
+	return generateATORRFpatchesImage(image_path)
+
+def generateATORpatches(use3DOD, imagePaths, train):
+
+	if(use3DOD):
+		printe("generateATORpatches error: use3DOD not currently supported")
+		
+	transformedPatchesList = []
+	for imageIndex, imagePath in enumerate(imagePaths):
+		transformedPatches = generateATORRFpatchesImage(imagePath)
+		transformedPatchesList.append(transformedPatches)
+	transformedPatches = pt.stack(transformedPatchesList, dim=0)	#shape: batchSize, numberEllipses, H, W, C
+	transformedPatches = pt.permute(transformedPatches, (0, 1, 4, 2, 3))	#shape: batchSize, VITmaxNumberATORpatches, C, H, W
+	
+	return transformedPatches
+		
+def generateATORRFpatchesImage(image_path):
 	# Read image
 	image_rgb = read_image(image_path)
 
@@ -68,14 +85,35 @@ def main(image_path):
 		ellipsePropertiesList = detectRFs(image_rgb, resolutionIndex)
 		ellipsePropertiesListAllRes = ellipsePropertiesListAllRes + ellipsePropertiesList
 	
+	transformedPatchList = []
 	for ellipse in ellipsePropertiesListAllRes:
-		generateNormalisedImageSegment(ellipse, image_rgb)
+		transformedPatch = generateNormalisedImageSegment(ellipse, image_rgb)
+		transformedPatch = pt.tensor(transformedPatch)	#convert np to pt
+		transformedPatchList.append(transformedPatch)
+	transformedPatches = pt.stack(transformedPatchList, dim=0)	#shape: numberEllipses, H, W, C
+
+	numberEllipses = len(ellipsePropertiesListAllRes) 
+	#print("numberEllipses = ", numberEllipses)
+	if(numberEllipses < VITmaxNumberATORpatches):
+		paddedPatchesNumber = VITmaxNumberATORpatches-numberEllipses
+		paddedPatches = pt.zeros((paddedPatchesNumber, transformedPatches.shape[1], transformedPatches.shape[2], transformedPatches.shape[3]))
+		transformedPatches = pt.concat((transformedPatches, paddedPatches), dim=0)
+	elif(numberEllipses > VITmaxNumberATORpatches):
+		print("generateATORRFpatchesImage warning: numberEllipses > VITmaxNumberATORpatches, remove excess patches: numberEllipses = ", numberEllipses, ", VITmaxNumberATORpatches = ", VITmaxNumberATORpatches)
+		transformedPatches = transformedPatches[0:VITmaxNumberATORpatches]
+	elif(numberEllipses == VITmaxNumberATORpatches):
+		transformedPatches = transformedPatches	#no change
+		
+	return transformedPatches	
 		
 
 def detectRFs(image_rgb, resolutionIndex):
 	inputImageHeight, inputImageWidth, inputImageChannels = image_rgb.shape
 	imageSizeBase = (inputImageWidth, inputImageHeight)
 	
+	if(debugVerbose):
+		draw_image(image_rgb, "original image")
+
 	resolutionProperties = ATORpt_RFoperations.RFresolutionProperties(resolutionIndex, resolutionIndexFirst, numberOfResolutions, imageSizeBase)
 	#print("resolutionIndex = ", resolutionIndex)
 	#print("resolutionProperties.resolutionFactor = ", resolutionProperties.resolutionFactor)
@@ -89,9 +127,10 @@ def detectRFs(image_rgb, resolutionIndex):
 	# Detect ellipses
 	ellipsePropertiesList = detect_ellipses(features, resolutionProperties)
 	
-	# Draw original image + outline
-	draw_original_image_and_outline(resizedImage, features)
-	
+	if(debugVerbose):
+		# Draw original image + outline
+		draw_original_image_and_outline(resizedImage, features)
+
 	return ellipsePropertiesList
 	
 def read_image(image_path):
@@ -273,6 +312,18 @@ def draw_original_image_and_outline(image_rgb, features):
 	plt.axis("off")
 	plt.show(block=True)  # block=False so we can continue
 	
+
+def generateNormalisedImageSegment(ellipse, image_rgb):
+	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
+	if(debugVerbose):
+		ATORpt_RFapplyFilter.draw_patch_with_ellipse(patch, ellipse, patch_topleft, title_str="patch_orig")
+
+	patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
+	if(debugVerbose):
+		ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="patch_transformed")
+	
+	return patch_transformed
+
 def draw_image(patch_rgb, name):	
 	plt.figure(name, figsize=(8, 6))
 	plt.imshow(patch_rgb)
@@ -280,37 +331,6 @@ def draw_image(patch_rgb, name):
 	plt.axis("off")
 	plt.show(block=True)  # block=False so we can continue
 	
-
-'''
-def generateNormalisedImageSegment(ellipse, image_rgb):
-	
-	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
-	draw_image(patch, "patch_orig")
-	patch_transformed= ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
-	draw_image(patch_transformed, "patch_transformed")	#200x200 pixels, with the transformed ellipse (now circle) occupying the centre 100x100 pixels
-'''
-
-def generateNormalisedImageSegment(ellipse, image_rgb):
-	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
-	ATORpt_RFapplyFilter.draw_patch_with_ellipse(patch, ellipse, patch_topleft, title_str="patch_orig")
-
-	patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
-	ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(100,100), diameter=100, title_str="patch_transformed")
-	
-	return patch_transformed
-
-
-	'''
-	segmentImage, patch_topleft = generateSegment(ellipse, image_rgb)
-	RFproperties = ellipse
-	RFproperties.numberOfDimensions = 2
-	RFproperties.centerCoordinates = (0.0, 0.0)	#segment image is already centred
-	RFfilter = pt.tensor(segmentImage, dtype=pt.float32, device=device)
-	RFfilterTransformed = ATORpt_RFapplyFilter.normaliseRFfilter(RFfilter, RFproperties)
-	'''
-	
-	return patch_transformed
-
 
 if __name__ == "__main__":
 
@@ -321,27 +341,3 @@ if __name__ == "__main__":
 	
 	main(input_image_path)
 
-
-def generateSegment(ellipse, image_rgb):
-	inputImageHeight, inputImageWidth, inputImageChannels = image_rgb.shape
-
-	segmentRadius = int(max(ellipse.axesLength[0], ellipse.axesLength[1])//2)	#take square region
-	segmentCoordinates = (int(ellipse.centerCoordinates[0]), int(ellipse.centerCoordinates[1]))
-	
-	#ensure segment radius does not go outside of image (crop);
-	if(segmentCoordinates[0]-segmentRadius < 0):
-		segmentRadius = segmentCoordinates[0]
-	if(segmentCoordinates[1]-segmentRadius < 1):
-		segmentRadius = segmentCoordinates[1]
-	if(segmentCoordinates[0]+segmentRadius > inputImageWidth):
-		segmentRadius = inputImageWidth-segmentCoordinates[0]
-	if(segmentCoordinates[1]+segmentRadius > inputImageHeight):
-		segmentRadius = inputImageHeight-segmentCoordinates[1]
-	
-	#print("segmentRadius = ", segmentRadius)
-	#print("segmentCoordinates = ", segmentCoordinates)
-	
-	patch_topleft = segmentCoordinates[0]-segmentRadius, segmentCoordinates[1]-segmentRadius
-	segmentImage = image_rgb[segmentCoordinates[0]-segmentRadius:segmentCoordinates[0]+segmentRadius, segmentCoordinates[1]-segmentRadius:segmentCoordinates[1]+segmentRadius]
-
-	return segmentImage, patch_topleft

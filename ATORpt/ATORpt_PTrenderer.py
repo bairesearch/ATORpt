@@ -20,7 +20,7 @@ ATORpt PT renderer
 import torch as pt
 import math
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 
 import torch as pt
 import torch.nn.functional as F

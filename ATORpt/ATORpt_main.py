@@ -41,6 +41,8 @@ ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis T
 	- supports classification of 2D image snapshots recreated from transformed mesh coordinates
 		- perform independent, parallelised target prediction of object triangle data
 - !useEndToEndNeuralModel (useStandardVIT)
+	- useATORRFparallel
+		- uses ATOR RT to generate normalised snapshots
 	- useATORPTparallel:
 		- uses parallel pytorch ATOR implementation
 		- support corner/centroid features of the ATOR specification using third party libraries
@@ -77,10 +79,15 @@ from ATORpt_globalDefs import *
 import ATORpt_dataLoader
 if(useStandardVIT):
 	import ATORpt_vitStandard
-	if(useATORCPPserial):
-		import ATORpt_CPPATOR
+	if(useATORRFparallel):
+		#from ATORpt_RFglobalDefs import *
+		import ATORpt_RFmainSA
 	elif(useATORPTparallel):
+		#from ATORpt_PTglobalDefs import *
 		import ATORpt_PTATOR
+	elif(useATORCPPserial):
+		#from ATORpt_PTglobalDefs import *
+		import ATORpt_CPPATOR
 	import torch.optim as optim
 	from torchvision import transforms, datasets
 	from transformers import ViTFeatureExtractor, ViTForImageClassification
@@ -187,13 +194,15 @@ if(useStandardVIT):
 					x, y = x.to(device), y.to(device)
 					imagesLarge = x
 					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
-					
-				if(useATORCPPserial):
-					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
-					transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
+
+				if(useATORRFparallel):
+					transformedPatches = ATORpt_RFmainSA.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
 				elif(useATORPTparallel):
 					transformedPatches = ATORpt_PTATOR.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
-				
+				elif(useATORCPPserial):
+					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
+					transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
+					
 				artificialInputImages = generateArtificialInputImages(transformedPatches)	
 				if(debugVerbose):
 					print("labels = ", labels)

@@ -20,7 +20,7 @@ ATORpt PT geometric Hashing 2DOD - parallel processing of ATOR geometric hashing
 import torch as pt
 import math
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 import ATORpt_operations
 
 def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=None, meshFaces=None):

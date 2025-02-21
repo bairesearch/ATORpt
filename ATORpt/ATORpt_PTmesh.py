@@ -23,7 +23,7 @@ import torch.nn.functional as F
 import cv2
 import math
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 import ATORpt_operations
 
 def getSnapshotMeshCoordinates(use3DOD, keypointCoordinates, image, imageDepth=None):

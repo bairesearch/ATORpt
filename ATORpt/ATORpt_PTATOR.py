@@ -21,7 +21,7 @@ import torch as pt
 import cv2
 import torchvision.transforms.functional as TF
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 import ATORpt_PTfeatures
 import ATORpt_PTkeypoints
 import ATORpt_PTmesh

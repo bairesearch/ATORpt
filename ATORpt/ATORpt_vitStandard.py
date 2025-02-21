@@ -47,7 +47,7 @@ if(trainVITfromScratch):
 			encoded_features = self.transformer_encoder(patches)
 			logits = self.classification_head(encoded_features[:, 0])  # Use only the first token
 			if(debugVerbose):
-				print("patches.shape = ", patches.shape)
+				print("x.shape = ", x.shape)
 				print("patches.shape = ", patches.shape)
 				print("encoded_features.shape = ", encoded_features.shape)
 			return logits

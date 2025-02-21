@@ -21,7 +21,7 @@ import torch as pt
 import numpy as np
 import torchvision.transforms.functional as TF
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 import ATORpt_operations
 
 if(fullRotationalInvariance):

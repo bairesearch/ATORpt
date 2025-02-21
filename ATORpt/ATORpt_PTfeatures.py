@@ -23,7 +23,7 @@ import numpy as np
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import json
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 
 def featureDetection(image, zoomIndex):
 	zoom = getZoomValue(zoomIndex)

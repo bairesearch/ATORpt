@@ -21,7 +21,7 @@ import torch as pt
 import matplotlib.pyplot as plt
 import ATORpt_operations
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 
 if(support3DOD):
 

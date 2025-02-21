@@ -24,7 +24,7 @@ import math
 from pytorch3d.renderer.cameras import look_at_rotation
 
 
-from ATORpt_globalDefs import *
+from ATORpt_PTglobalDefs import *
 import ATORpt_operations
 
 def performGeometricHashingParallel(keypointCoordinates, meshCoordinates, meshValues=None, meshFaces=None):

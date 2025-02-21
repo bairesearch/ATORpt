@@ -20,6 +20,11 @@ import numpy as np
 import sys
 import torch as pt
 
+from ATORpt_globalDefs import *
+
+
+#****** RF algorithm selection ***********
+
 #RFmethod = "FT"
 RFmethod = "SA"
 #RFmethod = "CV"
@@ -38,8 +43,8 @@ if(RFmethod == "FT" or RFmethod == "CV"):
 	else:
 		RFdetectTriFeaturesSeparately = False
 		ensureMinimumImageSizeGreaterThanRFsize = False	#CHECKTHIS
-	debugVerbose = False
 	RFscaleImage = True
+	debugVerbose = False
 elif(RFmethod == "SA"):
 	RFdetectTriFeaturesSeparately = False
 	RFuseParallelProcessedCNN = False
@@ -48,12 +53,17 @@ elif(RFmethod == "SA"):
 	RFalwaysDefineEllipseMajorAxisAsFirst = True	#mandatory
 	if(RFalwaysDefineEllipseMajorAxisAsFirst):
 		RFalwaysRotateWrtMajorEllipseAxis = False	#default:False
-	debugVerbose = True
-
-#****** ATORpt_RFmainFT ***********
-
-np.set_printoptions(threshold=sys.maxsize)
-
+	useOpenCL = False	#default: False
+	RFpatchWidth = normaliseSnapshotLength
+	RFpatchCircleWidth = RFpatchWidth//2	#width of the normalised ellipse within the snapshotted patch (additional area can be added around the patch)
+	RFpatchCircleOffset = RFpatchWidth-RFpatchCircleWidth
+	debugVerbose = False
+	'''
+	print("RFpatchWidth = ", RFpatchWidth)
+	print("RFpatchCircleWidth = ", RFpatchCircleWidth)
+	print("RFpatchCircleOffset = ", RFpatchCircleOffset)
+	'''
+	
 #****** ATORpt_RFgenerate ***********
 
 generateRFfiltersEllipse = True
@@ -63,7 +73,7 @@ else:
 	generateRFfiltersTri = False	#inefficient without RFuseParallelProcessedCNN
 
 resolutionIndexFirst = 0
-numberOfResolutions = 4
+numberOfResolutions = numberOfZoomLevels
 
 #****** ATORpt_RFapply ***********
 
@@ -71,7 +81,6 @@ RFsaveRFfiltersAndImageSegments = True
 if(RFsaveRFfiltersAndImageSegments):
 	RFsaveRFfilters = True
 	RFsaveRFimageSegments = True	#required to generate transformed patches (normalised snapshots)
-
 
 imageSizeBase = (256, 256)
 
@@ -216,12 +225,4 @@ if(RFdetectTriFeaturesSeparately):
 pointFeatureAxisLengthInside = (pointFeatureRFinsideRadius, pointFeatureRFinsideRadius)
 pointFeatureAxisLengthOutside = (pointFeatureRFoutsideRadius, pointFeatureRFoutsideRadius)	#(1, 1)
 	
-	
-def printe(str):
-	print(str)
-	exit()
-
-
-device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
-
 
