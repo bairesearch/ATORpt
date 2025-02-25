@@ -57,6 +57,9 @@ elif(RFmethod == "SA"):
 	RFpatchWidth = normaliseSnapshotLength
 	RFpatchCircleWidth = RFpatchWidth//2	#width of the normalised ellipse within the snapshotted patch (additional area can be added around the patch)
 	RFpatchCircleOffset = RFpatchWidth-RFpatchCircleWidth
+	RFuseSegmentAnything2 = False
+	RFfilterSegmentsWholeImage = True	#filter poorly defined segments encompassing entire image (> 95% pixels)
+	RFfilterSegmentsWholeImageThreshold = 0.85
 	debugVerbose = False
 	'''
 	print("RFpatchWidth = ", RFpatchWidth)
@@ -225,4 +228,8 @@ if(RFdetectTriFeaturesSeparately):
 pointFeatureAxisLengthInside = (pointFeatureRFinsideRadius, pointFeatureRFinsideRadius)
 pointFeatureAxisLengthOutside = (pointFeatureRFoutsideRadius, pointFeatureRFoutsideRadius)	#(1, 1)
 	
+#****** segment-anything 2 parameters ***********
+
+segmentAnything2ViTHSAMcfg = "configs/sam2.1/sam2.1_hiera_l.yaml"	#default
+segmentAnything2ViTHSAMcheckpoint = "../segmentAnythingViTHSAM/sam2.1_hiera_large.pt"	#default
 

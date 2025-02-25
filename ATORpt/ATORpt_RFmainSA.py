@@ -13,6 +13,9 @@ See ATORpt_main.py
 source activate pytorch3d
 python ATORpt_RFmainSA.py images/leaf1.png
 
+source activate sam2
+python ATORpt_RFmainSA.py images/leaf1.png
+
 # Description:
 Perform ATOR receptive field (RF) ellipse detection using segment-anything (SA) library (hardware accelerated) rather than RF filters.
 
@@ -47,9 +50,20 @@ import ATORpt_RFellipsePropertiesClass
 import ATORpt_RFoperations
 import ATORpt_RFapplyFilter
 
-from segment_anything import sam_model_registry, SamPredictor
-
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
+
+if(RFuseSegmentAnything2):
+	from sam2.build_sam import build_sam2
+	from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator	#https://github.com/facebookresearch/sam2/blob/main/notebooks/automatic_mask_generator_example.ipynb
+	sam_model = build_sam2(segmentAnything2ViTHSAMcfg, segmentAnything2ViTHSAMcheckpoint)
+	mask_generator = SAM2AutomaticMaskGenerator(sam_model)
+else:
+	from segment_anything import sam_model_registry, SamPredictor
+	from segment_anything import SamAutomaticMaskGenerator
+	sam = sam_model_registry[segmentAnythingViTHSAMname](checkpoint=segmentAnythingViTHSAMpathName)
+	sam.to(device)
+	predictor = SamPredictor(sam)
+	mask_generator = SamAutomaticMaskGenerator(sam)
 
 
 def main(image_path):
@@ -172,14 +186,13 @@ def detect_segments(image_rgb):
 	
 	# use Segment Anything to get segment masks
 	masks = []
-	sam = sam_model_registry[segmentAnythingViTHSAMname](checkpoint=segmentAnythingViTHSAMpathName)
-	sam.to(device)
-	predictor = SamPredictor(sam)
-	predictor.set_image(image_rgb)
-	from segment_anything import SamAutomaticMaskGenerator
-	mask_generator = SamAutomaticMaskGenerator(sam)
-	masks = mask_generator.generate(image_rgb)
 
+	if(RFuseSegmentAnything2):
+		masks = mask_generator.generate(image_rgb)
+	else:
+		predictor.set_image(image_rgb)
+		masks = mask_generator.generate(image_rgb)	
+	
 	segment_points = []
 	edge_points = []
 	centroid_points = []
@@ -191,41 +204,52 @@ def detect_segments(image_rgb):
 		for m in masks:
 			# m is a dict with keys 'segmentation', 'area', 'bbox', ...
 			seg = m["segmentation"].astype(np.uint8)
-		
-			# Edge detection - find the boundary of the segment (contour)
-			contours, _ = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-			edge_points_segment = []
-			for c in contours:	#should only be one contour per segment
-				for pt in c:
-					ix = pt[0][0]	#x
-					iy = pt[0][1]	#y
-					if ix < 0 or ix >= width or iy < 0 or iy >= height:
-						continue
-					contrast = float(image_contrast[iy, ix])  # simplistic contrast measure
-					edge_points_segment.append((ix, iy, contrast))
-			edge_points_segment_np = np.array(edge_points_segment, dtype=np.float32)
-			edge_points.append(edge_points_segment_np)
 			
-			# Colour detection
-			mask = seg.astype(bool)
-			colour_segment = [image_rgb[:, :, c][mask].mean() for c in range(3)]  # R, G, B order
-			colour_points.append(colour_segment)
+			segFilter = True
+			if(RFfilterSegmentsWholeImage):
+				image_area = height*width
+				mask_area = m["segmentation"].sum()
+				mask_ratio = mask_area / image_area
+				#print("mask_ratio = ", mask_ratio)
+				if mask_ratio > RFfilterSegmentsWholeImageThreshold:
+					segFilter = False
+					#print("mask_ratio = ", mask_ratio)
 			
-			# Segment coordinates derivation
-			segment_points_segment = np.argwhere(seg > 0)  # Returns (row, col) -> (y, x)
-			segment_points_segment = segment_points_segment[:, [1, 0]]  # Swap columns to get (x, y)
-			segment_points.append(segment_points_segment)
-			
-			# Centroid detection
-			M = cv2.moments(seg, binaryImage=True)
-			if M["m00"] != 0:
-				cx = M["m10"] / M["m00"]
-				cy = M["m01"] / M["m00"]
-				# get contrast from the center pixel
-				ix, iy = int(round(cx)), int(round(cy))
-				if ix >= 0 and ix < width and iy >= 0 and iy < height:
-					contrast = float(image_contrast[iy, ix])
-					centroid_points.append((cx, cy, contrast))
+			if(segFilter):
+				# Edge detection - find the boundary of the segment (contour)
+				contours, _ = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+				edge_points_segment = []
+				for c in contours:	#should only be one contour per segment
+					for pt in c:
+						ix = pt[0][0]	#x
+						iy = pt[0][1]	#y
+						if ix < 0 or ix >= width or iy < 0 or iy >= height:
+							continue
+						contrast = float(image_contrast[iy, ix])  # simplistic contrast measure
+						edge_points_segment.append((ix, iy, contrast))
+				edge_points_segment_np = np.array(edge_points_segment, dtype=np.float32)
+				edge_points.append(edge_points_segment_np)
+
+				# Colour detection
+				mask = seg.astype(bool)
+				colour_segment = [image_rgb[:, :, c][mask].mean() for c in range(3)]  # R, G, B order
+				colour_points.append(colour_segment)
+
+				# Segment coordinates derivation
+				segment_points_segment = np.argwhere(seg > 0)  # Returns (row, col) -> (y, x)
+				segment_points_segment = segment_points_segment[:, [1, 0]]  # Swap columns to get (x, y)
+				segment_points.append(segment_points_segment)
+
+				# Centroid detection
+				M = cv2.moments(seg, binaryImage=True)
+				if M["m00"] != 0:
+					cx = M["m10"] / M["m00"]
+					cy = M["m01"] / M["m00"]
+					# get contrast from the center pixel
+					ix, iy = int(round(cx)), int(round(cy))
+					if ix >= 0 and ix < width and iy >= 0 and iy < height:
+						contrast = float(image_contrast[iy, ix])
+						centroid_points.append((cx, cy, contrast))
 
 	features = {
 		"segment_points": segment_points,

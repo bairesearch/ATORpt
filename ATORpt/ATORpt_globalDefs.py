@@ -40,7 +40,9 @@ else:
 
 #debug vars:
 debugSingleZoomLevel = False
-debugVIT = True
+debugVITbasic = True
+debugVITlow = False
+debugVITmoderate = False
 debugProcessSingleImage = False
 debugVerbose = False
 debugATOR = False
@@ -94,9 +96,9 @@ if(databaseName == "ALOI-VIEW"):
 	databaseRoot = "/media/" + userName + "/datasets/ALOI-VIEW/" 
 	databaseImageShape = (3, 768, 576)   #numberOfChannels, imageHeight, imageWidth
 	ALOIdatabaseImageStartIndex = 1
-	if(debugVIT):
-		numberOfOutputDimensions = 10
-		ALOIdatabaseNumberOfImages = 10
+	if(debugVITbasic):
+		numberOfOutputDimensions = 10	#1000
+		ALOIdatabaseNumberOfImages = 10	#1000
 		ALOIdatabaseNumberOfViews = 4	#72
 		ALOIdatabaseNumberOfIlluminationDirections = 4	#24
 		ALOIdatabaseNumberOfIlluminationColours = 4	#12
@@ -104,6 +106,26 @@ if(databaseName == "ALOI-VIEW"):
 		ALOIdatabaseNumberOfViewsTest = 1	#8
 		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
 		numberOfSpatialResolutions = 1	
+	elif(debugVITlow):
+		numberOfOutputDimensions = 10	#1000
+		ALOIdatabaseNumberOfImages = 10	#1000
+		ALOIdatabaseNumberOfViews = 4	#72
+		ALOIdatabaseNumberOfIlluminationDirections = 24	#24
+		ALOIdatabaseNumberOfIlluminationColours = 12	#12
+		ALOIdatabaseNumberOfViewsTrain = 3	#64
+		ALOIdatabaseNumberOfViewsTest = 1	#8
+		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
+		numberOfSpatialResolutions = 1		
+	elif(debugVITmoderate):
+		numberOfOutputDimensions = 100	#1000
+		ALOIdatabaseNumberOfImages = 100	#1000
+		ALOIdatabaseNumberOfViews = 4	#72
+		ALOIdatabaseNumberOfIlluminationDirections = 24	#24
+		ALOIdatabaseNumberOfIlluminationColours = 12	#12
+		ALOIdatabaseNumberOfViewsTrain = 3	#64
+		ALOIdatabaseNumberOfViewsTest = 1	#8
+		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
+		numberOfSpatialResolutions = 1
 	else:
 		numberOfOutputDimensions = 1000	
 		ALOIdatabaseNumberOfImages = 1000
@@ -132,10 +154,7 @@ else:
 	print("unknown databaseName: = ", databaseName)
 	exit()
 
-if(debugVIT):
-	databaseTrainShuffle = True	#False
-else:
-	databaseTrainShuffle = True
+databaseTrainShuffle = True
 
 trainNumberOfEpochs = 10	#10	#1
 

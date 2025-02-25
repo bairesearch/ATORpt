@@ -152,7 +152,10 @@ def crop_ellipse_area(image, ellipse_props, padding_ratio=0.5):
 	
 	# Get the 4 corners of this rotated rectangle
 	box_points = cv2.boxPoints(rot_rect)  # returns 4 points
-	box_points = np.int0(box_points)	  # integer coords
+	if(RFuseSegmentAnything2):
+		box_points = box_points.astype(np.int32)
+	else:
+		box_points = np.int0(box_points)	  # integer coords
 
 	# Compute the bounding rect of those points
 	x, y, w, h = cv2.boundingRect(box_points)

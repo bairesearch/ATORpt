@@ -64,6 +64,20 @@ pip install matplotlib
 pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFdetectEllipsesSA)
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
+
+---
+conda create -n sam2 python=3.12
+conda activate sam2
+pip3 install torch torchvision torchaudio
+pip install tqdm
+pip install transformers
+pip install click
+pip install opencv-python opencv-contrib-python
+pip install kornia
+pip install matplotlib
+pip install git+https://github.com/facebookresearch/sam2.git
+pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
+pip install lovely-tensors
 ```
 
 ### Execution
@@ -71,8 +85,8 @@ pip install lovely-tensors
 source activate pytorch3d
 python3 ATORpt_main.py
 
-source activate pytorch3d
-python3 ATORpt_RFmain.py
+source activate sam2
+python3 ATORpt_main.py
 ```
 
 ### Acknowledgements
@@ -142,6 +156,12 @@ python ATORpt_RFmainSA.py images/leaf1.png
 set RFmethod = "CV"
 source activate pytorch3d
 python ATORpt_RFmainCV.py images/leaf1.png
+
+---
+set RFmethod = "SA"
+source activate sam2
+python ATORpt_RFmainSA.py images/leaf1.png
+
 ```
 
 ### Acknowledgements
