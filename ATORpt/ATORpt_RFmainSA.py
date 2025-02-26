@@ -100,12 +100,13 @@ def generateATORRFpatchesImage(image_path):
 	
 	transformedPatchList = []
 	for ellipse in ellipsePropertiesListAllRes:
-		transformedPatch = generateNormalisedImageSegment(ellipse, image_rgb)
-		transformedPatch = pt.tensor(transformedPatch)	#convert np to pt
-		transformedPatchList.append(transformedPatch)
+		transformedPatches = generateNormalisedImageSegment(ellipse, image_rgb)
+		for transformedPatch in transformedPatches:
+			transformedPatch = pt.tensor(transformedPatch)	#convert np to pt
+			transformedPatchList.append(transformedPatch)
 	transformedPatches = pt.stack(transformedPatchList, dim=0)	#shape: numberEllipses, H, W, C
 
-	numberEllipses = len(ellipsePropertiesListAllRes) 
+	numberEllipses = transformedPatches.shape[0]	#len(ellipsePropertiesListAllRes) 
 	#print("numberEllipses = ", numberEllipses)
 	if(numberEllipses < VITmaxNumberATORpatches):
 		paddedPatchesNumber = VITmaxNumberATORpatches-numberEllipses
@@ -339,17 +340,44 @@ def draw_original_image_and_outline(image_rgb, features):
 	plt.axis("off")
 	plt.show(block=True)  # block=False so we can continue
 	
-
+def calculateEllipticity(ellipse):
+	axesLength = ellipse.axesLength
+	a, b = max(axesLength), min(axesLength)
+	if a <= 0 or b <= 0:
+		raise ValueError("Semi-major and semi-minor axes must be positive numbers.")
+	if b > a:
+		raise ValueError("Semi-major axis (a) must be greater than or equal to semi-minor axis (b).")
+	e = math.sqrt(1 - (b ** 2) / (a ** 2))
+	return e
+	
 def generateNormalisedImageSegment(ellipse, image_rgb):
+	patch_transformed_list = []
+	
 	patch, patch_topleft = ATORpt_RFapplyFilter.crop_ellipse_area(image_rgb, ellipse, padding_ratio=1.0)
 	if(debugVerbose):
 		ATORpt_RFapplyFilter.draw_patch_with_ellipse(patch, ellipse, patch_topleft, title_str="patch_orig")
 
-	patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
-	if(debugVerbose):
-		ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="patch_transformed")
+	if(RFdetectEllipticity):
+		e = calculateEllipticity(ellipse)
+		if(debugVerbose):
+			print("calculateEllipticity(ellipse) = ", e)
+		if(e > RFminimumEllipticityThresholdRotate):
+			patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
+			patch_transformed_list.append(patch_transformed)
+			if(debugVerbose):
+				ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="patch_transformed")
+		if(e < RFmaximumEllipticityThresholdNoRotate):
+			patch_transformed = ATORpt_RFapplyFilter.transform_patch_scale_only(patch, ellipse, patch_topleft)
+			patch_transformed_list.append(patch_transformed)
+			if(debugVerbose):
+				ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="patch_transformed")
+	else:
+		patch_transformed = ATORpt_RFapplyFilter.transform_patch(patch, ellipse, patch_topleft)
+		patch_transformed_list.append(patch_transformed)
+		if(debugVerbose):
+			ATORpt_RFapplyFilter.draw_patch_with_circle(patch_transformed, center=(RFpatchCircleOffset,RFpatchCircleOffset), diameter=RFpatchCircleWidth, title_str="patch_transformed")
 	
-	return patch_transformed
+	return patch_transformed_list
 
 def draw_image(patch_rgb, name):	
 	plt.figure(name, figsize=(8, 6))

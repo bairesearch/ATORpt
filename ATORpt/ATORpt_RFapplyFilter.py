@@ -275,6 +275,74 @@ def transform_patch(patch, ellipse_props, patch_topleft):
 	return warped
 
 
+def transform_patch_scale_only(patch, ellipse_props, patch_topleft):
+    """
+    Scale the patch so that the ellipse becomes
+    a RFpatchCircleWidth x RFpatchCircleWidth circle in a RFpatchWidth x RFpatchWidth
+    output image with center at (RFpatchCircleOffset, RFpatchCircleOffset).
+
+    No rotation is applied. Only scaling + translation.
+
+    Returns the RFpatchWidth x RFpatchWidth transformed image.
+    """
+
+    (xc, yc) = ellipse_props.centerCoordinates
+    (x1, y1) = patch_topleft
+    cx_patch = xc - x1
+    cy_patch = yc - y1
+
+    majorAxis = ellipse_props.axesLength[0]
+    minorAxis = ellipse_props.axesLength[1]
+
+    # If your logic enforces the major axis to be the first, you can still do that check,
+    # but in most cases you only need to ensure your scale factors are correct:
+    if minorAxis > majorAxis:
+        majorAxis, minorAxis = minorAxis, majorAxis
+
+    # Scale factors to turn ellipse into an RFpatchCircleWidth x RFpatchCircleWidth circle
+    # e.g. 100 x 100 circle
+    Sx = float(RFpatchCircleWidth) / minorAxis  # scale in x
+    Sy = float(RFpatchCircleWidth) / majorAxis  # scale in y
+
+    # No rotation: cosA = 1, sinA = 0
+    cosA = 1.0
+    sinA = 0.0
+
+    # Build the 2x3 affine matrix M for warpAffine
+    # [ a11  a12  b1 ]
+    # [ a21  a22  b2 ]
+    #
+    # x_out = Sx*(x - cx_patch) + RFpatchCircleOffset
+    # y_out = Sy*(y - cy_patch) + RFpatchCircleOffset
+
+    a11 = Sx * cosA  # = Sx
+    a12 = -Sx * sinA # = 0
+    a21 = Sy * sinA  # = 0
+    a22 = Sy * cosA  # = Sy
+
+    b1 = float(RFpatchCircleOffset) - (a11 * cx_patch + a12 * cy_patch)
+    b2 = float(RFpatchCircleOffset) - (a21 * cx_patch + a22 * cy_patch)
+
+    M = np.array([
+        [a11, a12, b1],
+        [a21, a22, b2]
+    ], dtype=np.float32)
+
+    # Warp into RFpatchWidth x RFpatchWidth (e.g. 200x200) with black padding
+    out_size = (RFpatchWidth, RFpatchWidth)  # width, height
+    warped = cv2.warpAffine(
+        patch,
+        M,
+        out_size,
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0)
+    )
+
+    return warped
+
+
+
 def draw_patch_with_ellipse(patch_rgb, ellipse, patch_topleft, title_str="Untransformed Patch"):
 	"""
 	patch_rgb: the cropped patch (H x W x 3) from your image.

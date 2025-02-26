@@ -61,7 +61,11 @@ elif(RFmethod == "SA"):
 	RFfilterSegments = True	#filter poorly defined segments
 	RFfilterSegmentsWholeImageThreshold = 0.85	#filter poorly defined segments encompassing entire image (> 65% pixels)
 	RFfilterSegmentsBackgroundColourThreshold = 15	#filter poorly defined segments encompassing background areas (average colour luminosity < 15/255 ie ~black)
-	debugVerbose = False
+	RFdetectEllipticity = True
+	if(RFdetectEllipticity):
+		RFminimumEllipticityThresholdRotate = 0.2	#do not rotate snapshots if ellipticity is low (if near 0 then the actual ellipticity of the segment is ill-defined)	#a:b ratio ~= 2%
+		RFmaximumEllipticityThresholdNoRotate = 0.5	#do not rotate snapshots if ellipticity is low (if near 0 then the actual ellipticity of the segment is ill-defined)	#a:b ratio ~= 10%
+	debugVerbose = True
 	'''
 	print("RFpatchWidth = ", RFpatchWidth)
 	print("RFpatchCircleWidth = ", RFpatchCircleWidth)
