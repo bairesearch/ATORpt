@@ -117,6 +117,16 @@ if(databaseName == "ALOI-VIEW"):
 		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
 		numberOfSpatialResolutions = 1		
 	elif(debugVITmoderate):
+		numberOfOutputDimensions = 10	
+		ALOIdatabaseNumberOfImages = 10
+		ALOIdatabaseNumberOfViews = 72
+		ALOIdatabaseNumberOfIlluminationDirections = 24
+		ALOIdatabaseNumberOfIlluminationColours = 12
+		ALOIdatabaseNumberOfViewsTrain = 64
+		ALOIdatabaseNumberOfViewsTest = 8
+		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
+		numberOfSpatialResolutions = 1
+		'''
 		numberOfOutputDimensions = 100	#1000
 		ALOIdatabaseNumberOfImages = 100	#1000
 		ALOIdatabaseNumberOfViews = 4	#72
@@ -126,6 +136,7 @@ if(databaseName == "ALOI-VIEW"):
 		ALOIdatabaseNumberOfViewsTest = 1	#8
 		databaseNumberOfClasses = ALOIdatabaseNumberOfImages
 		numberOfSpatialResolutions = 1
+		'''
 	else:
 		numberOfOutputDimensions = 1000	
 		ALOIdatabaseNumberOfImages = 1000

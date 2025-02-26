@@ -204,18 +204,27 @@ def detect_segments(image_rgb):
 		for m in masks:
 			# m is a dict with keys 'segmentation', 'area', 'bbox', ...
 			seg = m["segmentation"].astype(np.uint8)
+		
+			# Colour detection
+			mask = seg.astype(bool)
+			colour_segment = [image_rgb[:, :, c][mask].mean() for c in range(3)]  # R, G, B order
 			
-			segFilter = True
-			if(RFfilterSegmentsWholeImage):
+			segFilterPass = True
+			if(RFfilterSegments):
 				image_area = height*width
 				mask_area = m["segmentation"].sum()
 				mask_ratio = mask_area / image_area
 				#print("mask_ratio = ", mask_ratio)
+				colour_segment_lum = np.mean(colour_segment)
+				#print("colour_segment_lum = ", colour_segment_lum)
 				if mask_ratio > RFfilterSegmentsWholeImageThreshold:
-					segFilter = False
+					segFilterPass = False
 					#print("mask_ratio = ", mask_ratio)
-			
-			if(segFilter):
+				if colour_segment_lum < RFfilterSegmentsBackgroundColourThreshold:
+					segFilterPass = False
+					#print("colour_segment_lum = ", colour_segment_lum)
+
+			if(segFilterPass):
 				# Edge detection - find the boundary of the segment (contour)
 				contours, _ = cv2.findContours(seg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 				edge_points_segment = []
@@ -231,8 +240,6 @@ def detect_segments(image_rgb):
 				edge_points.append(edge_points_segment_np)
 
 				# Colour detection
-				mask = seg.astype(bool)
-				colour_segment = [image_rgb[:, :, c][mask].mean() for c in range(3)]  # R, G, B order
 				colour_points.append(colour_segment)
 
 				# Segment coordinates derivation

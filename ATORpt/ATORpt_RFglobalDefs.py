@@ -58,8 +58,9 @@ elif(RFmethod == "SA"):
 	RFpatchCircleWidth = RFpatchWidth//2	#width of the normalised ellipse within the snapshotted patch (additional area can be added around the patch)
 	RFpatchCircleOffset = RFpatchWidth-RFpatchCircleWidth
 	RFuseSegmentAnything2 = False
-	RFfilterSegmentsWholeImage = True	#filter poorly defined segments encompassing entire image (> 95% pixels)
-	RFfilterSegmentsWholeImageThreshold = 0.85
+	RFfilterSegments = True	#filter poorly defined segments
+	RFfilterSegmentsWholeImageThreshold = 0.85	#filter poorly defined segments encompassing entire image (> 65% pixels)
+	RFfilterSegmentsBackgroundColourThreshold = 15	#filter poorly defined segments encompassing background areas (average colour luminosity < 15/255 ie ~black)
 	debugVerbose = False
 	'''
 	print("RFpatchWidth = ", RFpatchWidth)
