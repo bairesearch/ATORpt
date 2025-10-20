@@ -7,27 +7,32 @@ Richard Bruce Baxter - Copyright (c) 2021-2025 Baxter AI (baxterai.com)
 MIT License
 
 # Installation:
-Python 3 and pytorch 2.2+
+Python 3 and pytorch
 
 conda create -n pytorch3d python=3.9
 conda activate pytorch3d
 conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath
 conda install pytorch3d -c pytorch3d
+python -m pip install "numpy==1.24.4"
 pip install tqdm
-pip install transformers
+python -m pip install "transformers==4.37.0"
 pip install click
-pip install opencv-python opencv-contrib-python
+python -m pip install --upgrade --force-reinstall "opencv-python==4.7.0.72" "opencv-contrib-python==4.7.0.72"
 pip install kornia
 pip install matplotlib
 pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFmainSA)
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
+	python -m pip install --force-reinstall --no-deps "opencv-python==4.7.0.72" "opencv-contrib-python==4.7.0.72"
+	python -m pip install --force-reinstall --no-deps git+https://github.com/facebookresearch/segment-anything.git
+	python -m pip install --force-reinstall --no-deps lovely-tensors
+	python -m pip install --upgrade --force-reinstall "numpy==1.24.4"
 
 ---
 conda create -n sam2 python=3.12
 conda activate sam2
-pip3 install torch torchvision torchaudio
+pip install torch torchvision torchaudio
 pip install tqdm
 pip install transformers
 pip install click
@@ -90,6 +95,7 @@ Requires upgrading to support3DOD:generate3DODfromParallax
 
 import torch as pt
 import torch.nn as nn
+import torch.nn.functional as F
 from tqdm import tqdm
 
 from ATORpt_globalDefs import *
@@ -113,6 +119,7 @@ else:
 	from torch.nn import CrossEntropyLoss
 
 device = pt.device('cuda')
+snapshotMajorityTopK = min(3, VITnumberOfClasses)  # number of top classes to keep when tallying snapshot votes per image
 
 if(useStandardVIT):
 	def mainStandardViT():
@@ -219,24 +226,25 @@ if(useStandardVIT):
 					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
 					transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
 					
-				artificialInputImages = generateArtificialInputImages(transformedPatches)	
-				if(debugVerbose):
+				logitsPerImage, predicted, batchTopkIndices, batchTopkCounts = forwardStandardViTOnSnapshots(VITmodel, transformedPatches)
+				if(isinstance(labels, pt.Tensor)):
+					if(labels.device != logitsPerImage.device):
+						labels = labels.to(logitsPerImage.device)
+					predicted = predicted.to(labels.device).detach()
+				else:
+					predicted = predicted.detach()
+				if(debugMajoritySnapshotClassificationVoting):
 					print("labels = ", labels)
+					print("batchTopkIndices = ", batchTopkIndices)
+					print("batchTopkCounts = ", batchTopkCounts)
 				if(train):
 					optimizer.zero_grad()
-					logits = VITmodel(artificialInputImages)
-					loss = criterion(logits, labels)
+					loss = criterion(logitsPerImage, labels)
 					loss.backward()
 					optimizer.step()
 					running_loss += loss.item()
-					_, predicted = pt.max(logits, 1)
-					total += labels.size(0)
-					correct += (predicted == labels).sum().item()
-				else:
-					logits = VITmodel(artificialInputImages)
-					_, predicted = pt.max(logits, 1)
-					total += labels.size(0)
-					correct += (predicted == labels).sum().item()
+				total += labels.size(0)
+				correct += (predicted == labels).sum().item()
 			if(train):
 				train_loss = running_loss / len(dataLoader)
 				train_acc = correct / total
@@ -311,14 +319,36 @@ else:
 			print(f"Test loss: {testLoss:.2f}")
 			print(f"Test accuracy: {correct / total * 100:.2f}%")
 
-def generateArtificialInputImages(transformedPatches):
-	batchSizeDynamic = transformedPatches.shape[0]
-	#transformedPatches shape: batchSize, ATORmaxNumberOfPolys, C, H, W
-	#artificialInputImages = pt.permute(0, 2, 1, 3, 4)	#shape: batchSize, C, ATORmaxNumberOfPolys, H, W
-	artificialInputImages = pt.reshape(transformedPatches, (batchSizeDynamic, VITnumberOfChannels, VITimageSize, VITimageSize))	#CHECKTHIS (confirm ViT artificial image creation method)
+def flattenNormalisedSnapshotBatch(transformedPatches):
+	# transformedPatches shape: batchSize, ATORmaxNumberOfPolys, C, H, W
+	batchSizeDynamic, numSnapshots, channels, height, width = transformedPatches.shape
+	vitInputs = transformedPatches.reshape(batchSizeDynamic * numSnapshots, channels, height, width)
 	if(debugVerbose):
-		print("artificialInputImages.shape = ", artificialInputImages.shape)
-	return artificialInputImages			
+		print("flattenNormalisedSnapshotBatch: vitInputs.shape = ", vitInputs.shape)
+	return vitInputs, batchSizeDynamic, numSnapshots
+
+
+def extractVITLogits(vitOutputs):
+	return vitOutputs.logits if hasattr(vitOutputs, "logits") else vitOutputs
+
+
+def forwardStandardViTOnSnapshots(VITmodel, transformedPatches):
+	vitInputs, batchSizeDynamic, numSnapshots = flattenNormalisedSnapshotBatch(transformedPatches)
+	vitOutputs = VITmodel(vitInputs)
+	logits = extractVITLogits(vitOutputs)
+	logitsPerSnapshot = logits.view(batchSizeDynamic, numSnapshots, -1)
+	logitsPerImage = logitsPerSnapshot.mean(dim=1)
+	snapshotPredictions = logitsPerSnapshot.argmax(dim=2)
+	classCounts = F.one_hot(snapshotPredictions, num_classes=logitsPerSnapshot.shape[-1]).sum(dim=1).to(pt.float32)
+	topkK = 1	#min(snapshotMajorityTopK, classCounts.shape[-1])
+	if(topkK < 1):
+		raise ValueError("snapshotMajorityTopK must be >= 1 for majority voting")
+	topkCounts, topkIndices = classCounts.topk(topkK, dim=1)
+	majorityPredictions = topkIndices[:, 0]
+	if(debugVerbose):
+		print("forwardStandardViTOnSnapshots: logitsPerSnapshot.shape = ", logitsPerSnapshot.shape)
+		print("forwardStandardViTOnSnapshots: classCounts.shape = ", classCounts.shape)
+	return logitsPerImage, majorityPredictions, topkIndices, topkCounts
 
 			
 if __name__ == '__main__':

@@ -46,6 +46,7 @@ if(RFmethod == "FT" or RFmethod == "CV"):
 	RFscaleImage = True
 	debugVerbose = False
 elif(RFmethod == "SA"):
+	RFuseSegmentAnything2 = True
 	RFdetectTriFeaturesSeparately = False
 	RFuseParallelProcessedCNN = False
 	ensureMinimumImageSizeGreaterThanRFsize = False
@@ -57,7 +58,6 @@ elif(RFmethod == "SA"):
 	RFpatchWidth = normaliseSnapshotLength
 	RFpatchCircleWidth = RFpatchWidth//2	#width of the normalised ellipse within the snapshotted patch (additional area can be added around the patch)
 	RFpatchCircleOffset = RFpatchWidth-RFpatchCircleWidth
-	RFuseSegmentAnything2 = False
 	RFfilterSegments = True	#filter poorly defined segments
 	RFfilterSegmentsWholeImageThreshold = 0.85	#filter poorly defined segments encompassing entire image (> 65% pixels)
 	RFfilterSegmentsBackgroundColourThreshold = 15	#filter poorly defined segments encompassing background areas (average colour luminosity < 15/255 ie ~black)

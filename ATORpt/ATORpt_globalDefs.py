@@ -39,6 +39,7 @@ else:
 #****** debug parameters ***********
 
 #debug vars:
+debugMajoritySnapshotClassificationVoting = True
 debugSingleZoomLevel = False
 debugVITbasic = True
 debugVITlow = False
