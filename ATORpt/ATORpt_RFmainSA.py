@@ -49,6 +49,7 @@ from ATORpt_RFglobalDefs import *
 import ATORpt_RFellipsePropertiesClass
 import ATORpt_RFoperations
 import ATORpt_RFapplyFilter
+from typing import Any, Iterable
 
 device = pt.device("cuda" if pt.cuda.is_available() else "cpu")
 
@@ -75,17 +76,17 @@ def generateATORpatches(use3DOD, imagePaths, train):
 		printe("generateATORpatches error: use3DOD not currently supported")
 		
 	transformedPatchesList = []
-	for imageIndex, imagePath in enumerate(imagePaths):
-		transformedPatches = generateATORRFpatchesImage(imagePath)
+	for imageIndex, imageSource in enumerate(_iter_image_sources(imagePaths)):
+		transformedPatches = generateATORRFpatchesImage(imageSource)
 		transformedPatchesList.append(transformedPatches)
 	transformedPatches = pt.stack(transformedPatchesList, dim=0)	#shape: batchSize, numberEllipses, H, W, C
 	transformedPatches = pt.permute(transformedPatches, (0, 1, 4, 2, 3))	#shape: batchSize, VITmaxNumberATORpatches, C, H, W
 	
 	return transformedPatches
 		
-def generateATORRFpatchesImage(image_path):
+def generateATORRFpatchesImage(image_source: Any):
 	# Read image
-	image_rgb = read_image(image_path)
+	image_rgb = load_image_rgb(image_source)
 
 	resolutionIndexMax = numberOfResolutions
 	if RFscaleImage:
@@ -104,7 +105,10 @@ def generateATORRFpatchesImage(image_path):
 		for transformedPatch in transformedPatches:
 			transformedPatch = pt.tensor(transformedPatch)	#convert np to pt
 			transformedPatchList.append(transformedPatch)
-	transformedPatches = pt.stack(transformedPatchList, dim=0)	#shape: numberEllipses, H, W, C
+	if len(transformedPatchList) == 0:
+		transformedPatches = pt.zeros((VITmaxNumberATORpatches, normaliseSnapshotLength, normaliseSnapshotLength, VITnumberOfChannels))
+	else:
+		transformedPatches = pt.stack(transformedPatchList, dim=0)	#shape: numberEllipses, H, W, C
 
 	numberEllipses = transformedPatches.shape[0]	#len(ellipsePropertiesListAllRes) 
 	#print("numberEllipses = ", numberEllipses)
@@ -117,7 +121,7 @@ def generateATORRFpatchesImage(image_path):
 		transformedPatches = transformedPatches[0:VITmaxNumberATORpatches]
 	elif(numberEllipses == VITmaxNumberATORpatches):
 		transformedPatches = transformedPatches	#no change
-		
+
 	return transformedPatches	
 		
 
@@ -161,6 +165,66 @@ def read_image(image_path):
 
 	image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 	return image_rgb
+
+def load_image_rgb(image_source: Any):
+	if isinstance(image_source, str):
+		return read_image(image_source)
+	if isinstance(image_source, pt.Tensor):
+		return _tensor_to_rgb_numpy(image_source)
+	if isinstance(image_source, np.ndarray):
+		return _array_to_rgb_numpy(image_source)
+	try:
+		from PIL import Image
+		if isinstance(image_source, Image.Image):
+			return np.array(image_source.convert("RGB"))
+	except ImportError:
+		pass
+	raise TypeError(f"Unsupported image source type: {type(image_source)}")
+
+def _iter_image_sources(imagePaths: Any) -> Iterable[Any]:
+	if isinstance(imagePaths, (list, tuple)):
+		return imagePaths
+	if isinstance(imagePaths, pt.Tensor) and imagePaths.dim() == 4:
+		return [image for image in imagePaths]
+	if isinstance(imagePaths, np.ndarray) and imagePaths.ndim == 4:
+		return [image for image in imagePaths]
+	return [imagePaths]
+
+def _tensor_to_rgb_numpy(image_tensor: pt.Tensor) -> np.ndarray:
+	if image_tensor.dim() not in (2, 3):
+		raise ValueError(f"Expected tensor with 2 or 3 dimensions, got {image_tensor.dim()}")
+	tensor = image_tensor.detach().cpu()
+	if tensor.dim() == 2:
+		tensor = tensor.unsqueeze(0)
+	if tensor.size(0) not in (1, 3):
+		raise ValueError(f"Expected channel dimension of size 1 or 3, got {tensor.size(0)}")
+	tensor = tensor.float()
+	if tensor.max() <= 1.0:
+		tensor = tensor * 255.0
+	np_image = tensor.clamp(0, 255).byte().numpy()
+	np_image = np.transpose(np_image, (1, 2, 0))
+	if np_image.shape[2] == 1:
+		np_image = np.repeat(np_image, 3, axis=2)
+	return np_image
+
+def _array_to_rgb_numpy(array: np.ndarray) -> np.ndarray:
+	if array.ndim == 2:
+		array = array[:, :, None]
+	if array.ndim != 3:
+		raise ValueError(f"Expected array with 3 dimensions, got {array.ndim}")
+	if array.shape[2] not in (1, 3):
+		if array.shape[0] in (1, 3):
+			array = np.transpose(array, (1, 2, 0))
+		else:
+			raise ValueError(f"Expected channel dimension of size 1 or 3, got {array.shape}")
+	if array.shape[2] == 1:
+		array = np.repeat(array, 3, axis=2)
+	if array.dtype != np.uint8:
+		array = np.asarray(array, dtype=np.float32)
+		if np.max(array) <= 1.0:
+			array = array * 255.0
+		array = np.clip(array, 0, 255).astype(np.uint8)
+	return array
 
 def compute_contrast_map(image_rgb, method='laplacian', ksize=3):
 	image_gray = cv2.cvtColor(image_rgb, cv2.COLOR_BGR2GRAY)
@@ -279,6 +343,10 @@ def detect_ellipses(features, resolutionProperties):
 
 			ellipse = cv2.fitEllipse(segment_points_segment.astype(np.float32))
 			centerCoordinates, axesLength, angle = rescaleEllipseCoordinates(ellipse, resolutionProperties)
+			if any(axis <= 0 for axis in axesLength):
+				if(debugVerbose):
+					print(f"Skipping ellipse #{segment_index} due to non-positive axes: {axesLength}")
+				continue
 			ellipseProperties = ATORpt_RFellipsePropertiesClass.EllipsePropertiesClass(centerCoordinates, axesLength, angle, colour)
 			#inputImageRmod, ellipseFitError = ATORpt_RFellipsePropertiesClass.testEllipseApproximation(inputImageR, ellipseProperties)
 			ellipsePropertiesList.append(ellipseProperties)
@@ -395,4 +463,3 @@ if __name__ == "__main__":
 	input_image_path = sys.argv[1]
 	
 	main(input_image_path)
-

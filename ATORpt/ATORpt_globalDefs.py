@@ -25,21 +25,26 @@ import os
 
 #****** algorithm selection parameters ***********
 
-useEndToEndNeuralModel = False
-if(useEndToEndNeuralModel):
-	useStandardVIT = False	#custom ViT required
-else:
+useClassificationNeuralModel = True	#only use neural model for classification (perform ATOR using dedicated algorithm)
+if(useClassificationNeuralModel):
+	useEndToEndNeuralModel = False	#mandatory: False
+	classificationModelName = "VIT"	#default: VIT	#optional: VIT, MLP, CNN
 	useStandardVIT = True	#required
-	trainVITfromScratch = True	#this is required as pretrained transformer uses positional embeddings, where as ATOR transformed patch VIT currently assumes full permutation invariance 
 	useATORRFparallel = True
 	useATORPTparallel = False
 	useATORCPPserial = False	#use ATOR C++ executable to generate transformed patches (normalised snapshots)
+	trainVITfromScratch = True	#default: True
+	processSnapshotLossSeparately = True
+else:
+	useEndToEndNeuralModel = True	#mandatory: True
+	classificationModelName = "VIT"	#mandatory: VIT
+	useStandardVIT = False	#custom ViT required
 
 
 #****** debug parameters ***********
 
 #debug vars:
-debugMajoritySnapshotClassificationVoting = True
+debugMajoritySnapshotClassificationVoting = False
 debugSingleZoomLevel = False
 debugVITbasic = True
 debugVITlow = False
@@ -84,14 +89,14 @@ if(os.path.isdir('user')):
 	from user.user_globalDefs import *
 	
 if(useEndToEndNeuralModel):
-	databaseName = "MNIST"
+	databaseName = "MNIST"	#default: "MNIST" #ALOI-VIEW is not supported by end-to-end neural model
 else:
 	if(useATORRFparallel):
-		databaseName = "ALOI-VIEW"
+		databaseName = "ALOI-VIEW"	#default: "ALOI-VIEW"	#optional: ALOI-VIEW, MNIST, CIFAR-10, CIFAR-100, STL-10, etc
 	if(useATORPTparallel):
-		databaseName = "ALOI-VIEW"	#"MNIST"	#optional
+		databaseName = "ALOI-VIEW"	#default: "ALOI-VIEW"	#optional: ALOI-VIEW, MNIST, CIFAR-10, CIFAR-100, STL-10, etc
 	elif(useATORCPPserial):
-		databaseName = "ALOI-VIEW"
+		databaseName = "ALOI-VIEW"	#default: "ALOI-VIEW"	
 	
 if(databaseName == "ALOI-VIEW"):
 	databaseRoot = "/media/" + userName + "/datasets/ALOI-VIEW/" 
@@ -162,6 +167,24 @@ elif(databaseName == "MNIST"):
 		numberOfSpatialResolutions = 3
 	else:
 		numberOfSpatialResolutions = 1
+elif(databaseName == "CIFAR-10"):
+	databaseImageShape = (3, 32, 32)
+	numberOfOutputDimensions = 10
+	databaseNumberOfClasses = numberOfOutputDimensions
+	useMultipleSpatialResolutions = False
+	numberOfSpatialResolutions = 1
+elif(databaseName == "CIFAR-100"):
+	databaseImageShape = (3, 32, 32)
+	numberOfOutputDimensions = 100
+	databaseNumberOfClasses = numberOfOutputDimensions
+	useMultipleSpatialResolutions = False
+	numberOfSpatialResolutions = 1
+elif(databaseName == "STL-10"):
+	databaseImageShape = (3, 96, 96)
+	numberOfOutputDimensions = 10
+	databaseNumberOfClasses = numberOfOutputDimensions
+	useMultipleSpatialResolutions = False
+	numberOfSpatialResolutions = 1
 else:
 	print("unknown databaseName: = ", databaseName)
 	exit()
@@ -173,18 +196,17 @@ trainNumberOfEpochs = 10	#10	#1
 
 #****** ViT parameters ***********
 
-if(databaseName == "ALOI-VIEW"):
-	if(debugProcessSingleImage):
-		batchSize = 1
-	else:
-		if(useATORRFparallel):
-			batchSize = 8 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
-		elif(useATORPTparallel):
-			batchSize = 2 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
-		elif(useATORCPPserial):
-			batchSize = 1	#must process images serially (currently required for ATOR parallelised geometric hashing; assume first dimension of snapshot data in ATOR operations is patch index)
+
+if(debugProcessSingleImage):
+	batchSize = 1
 else:
-	batchSize = 4 #2, 4, 8
+	if(useATORRFparallel):
+		batchSize = 8 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
+	elif(useATORPTparallel):
+		batchSize = 2 #2, 4, 8	#depend on GPU ram (VITmaxNumberATORpatches, ATORpatchPadding)
+	elif(useATORCPPserial):
+		batchSize = 1	#must process images serially (currently required for ATOR parallelised geometric hashing; assume first dimension of snapshot data in ATOR operations is patch index)
+
 if(useATORRFparallel):
 	normaliseSnapshotLength = 60	#there are less snapshots per image with ATOR RF, so snapshots can be larger
 else:

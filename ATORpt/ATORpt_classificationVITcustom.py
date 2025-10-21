@@ -1,4 +1,4 @@
-"""ATORpt_vitCustom.py
+"""ATORpt_classificationVITcustom.py
 
 # Author:
 Brian Pulfer - Copyright (c) 2022 Peutlefaire (https://github.com/BrianPulfer)
@@ -11,7 +11,7 @@ None
 see ATORpt_main.py
 
 # Description:
-ATORpt vit Custom
+ATORpt classification vit Custom
 
 """
 

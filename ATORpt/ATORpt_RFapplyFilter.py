@@ -180,19 +180,12 @@ def crop_ellipse_area(image, ellipse_props, padding_ratio=0.5):
 	# Crop from the original image
 	cropped = image[y1_clip:y2_clip, x1_clip:x2_clip].copy()
 
-	# We now place this cropped region onto a black canvas of size (y2-y1, x2-x1)
-	out_h = (y2 - y1)
-	out_w = (x2 - x1)
-	patch = np.zeros((out_h, out_w, 3), dtype=image.dtype)
+	if cropped.size == 0:
+		# Nothing from the image overlaps this ellipse; return a minimal dummy patch
+		return np.zeros((1, 1, image.shape[2]), dtype=image.dtype), (x1_clip, y1_clip)
 
-	# The region within patch that corresponds to the actual image data
-	offset_x = x1_clip - x1  # how much we had to clip left
-	offset_y = y1_clip - y1  # how much we had to clip top
-
-	patch[offset_y:offset_y+cropped.shape[0], offset_x:offset_x+cropped.shape[1]] = cropped
-
-	# Return the patch, plus the top-left (x1,y1) so we know how to map back to original coords
-	return patch, (x1, y1)
+	# Return the cropped patch with a clipped top-left so transformations stay bounded
+	return cropped, (x1_clip, y1_clip)
 
 
 def transform_patch(patch, ellipse_props, patch_topleft):

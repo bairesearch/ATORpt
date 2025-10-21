@@ -9,6 +9,8 @@ MIT License
 # Installation:
 Python 3 and pytorch
 
+---
+ATORpt_globalDefs.useATORPTparallel=True: 
 conda create -n pytorch3d python=3.9
 conda activate pytorch3d
 conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
@@ -30,6 +32,7 @@ pip install lovely-tensors
 	python -m pip install --upgrade --force-reinstall "numpy==1.24.4"
 
 ---
+ATORpt_globalDefs.useATORRFparallel=True: 
 conda create -n sam2 python=3.12
 conda activate sam2
 pip install torch torchvision torchaudio
@@ -42,6 +45,7 @@ pip install matplotlib
 pip install git+https://github.com/facebookresearch/sam2.git
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
+pip install accelerate
 
 # Usage:
 source activate pytorch3d
@@ -59,10 +63,10 @@ Classification of normalised snapshots (transformed patches) via ViT
 
 ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
-- supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
+- supports classification of transformed mesh coordinates with a neural model (eg vit) - experimental
 	- supports classification of 2D image snapshots recreated from transformed mesh coordinates
 		- perform independent, parallelised target prediction of object triangle data
-- !useEndToEndNeuralModel (useStandardVIT)
+- useClassificationNeuralModel (if classificationModelName=="VIT": useStandardVIT)
 	- useATORRFparallel
 		- uses ATOR RF to generate normalised snapshots
 	- useATORPTparallel:
@@ -100,8 +104,7 @@ from tqdm import tqdm
 
 from ATORpt_globalDefs import *
 import ATORpt_dataLoader
-if(useStandardVIT):
-	import ATORpt_vitStandard
+if(useClassificationNeuralModel):
 	if(useATORRFparallel):
 		import ATORpt_RFmainSA
 	elif(useATORPTparallel):
@@ -110,34 +113,69 @@ if(useStandardVIT):
 		import ATORpt_CPPATOR
 	import torch.optim as optim
 	from torchvision import transforms, datasets
-	from transformers import ViTFeatureExtractor, ViTForImageClassification
+	import ATORpt_classification
+	classificationModelNameUpper = classificationModelName.upper()
+	if(classificationModelNameUpper=="VIT"):
+		import ATORpt_classificationVITstandard
+		from transformers import ViTFeatureExtractor, ViTForImageClassification, AutoConfig
+	else:
+		if(classificationModelNameUpper=="MLP"):
+			import ATORpt_classificationMLP
+		elif(classificationModelNameUpper=="CNN"):
+			import ATORpt_classificationCNN
+		else:
+			raise ValueError(f"Unsupported classificationModelName: {classificationModelName}")
 else:
-	import ATORpt_vitCustom
 	import ATORpt_E2EATOR
 	import ATORpt_E2Eoperations
 	from torch.optim import Adam
 	from torch.nn import CrossEntropyLoss
-
+	if(classificationModelName=="VIT"):
+		import ATORpt_classificationVITcustom
+	else:
+		printe("useEndToEndNeuralModel requires custom VIT")
+		
 device = pt.device('cuda')
-snapshotMajorityTopK = min(3, VITnumberOfClasses)  # number of top classes to keep when tallying snapshot votes per image
 
-if(useStandardVIT):
-	def mainStandardViT():
-		#print("mainStandardViT")
+
+if(useClassificationNeuralModel):
+	def mainClassificationNeuralModel():
+		#print("mainClassificationNeuralModel")
 		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
 
-		if(trainVITfromScratch):
-			VITmodel = ATORpt_vitStandard.ViTForImageClassificationClass()
+		if(classificationModelNameUpper=="VIT"):
+			if(trainVITfromScratch):
+				neuralModel = ATORpt_classificationVITstandard.ViTForImageClassificationClass()
+			else:
+				feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-224-in21k')
+				config = AutoConfig.from_pretrained('google/vit-base-patch16-224-in21k')
+				config.num_labels = databaseNumberOfClasses
+				# match the classifier head to the dataset; pretrained head weights are discarded
+				config.id2label = {i: str(i) for i in range(databaseNumberOfClasses)}
+				config.label2id = {label: idx for idx, label in config.id2label.items()}
+				ATORpt_classification.configure_vit_preprocessor(
+					image_size=config.image_size,
+					image_mean=getattr(feature_extractor, "image_mean", None),
+					image_std=getattr(feature_extractor, "image_std", None),
+					rescale_factor=getattr(feature_extractor, "rescale_factor", None),
+				)
+				neuralModel = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224-in21k', config=config, ignore_mismatched_sizes=True)
 		else:
-			feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-224-in21k')
-			config = feature_extractor.config
-			config.num_labels = ALOIdatabaseNumberOfImages
-			VITmodel = ViTForImageClassification.from_pretrained('google/vit-base-patch16-224-in21k', config=config)
+			if(classificationModelNameUpper=="MLP"):
+				neuralModel = ATORpt_classificationMLP.SnapshotMLPClassifier()
+			elif(classificationModelNameUpper=="CNN"):
+				neuralModel = ATORpt_classificationCNN.SnapshotCNNClassifier()
+			else:
+				raise ValueError(f"Unsupported classificationModelName: {classificationModelName}")
 
-		trainOrTestStandardViT(True, trainDataLoader, VITmodel)
-		trainOrTestStandardViT(False, testDataLoader, VITmodel)
+		neuralModel = neuralModel.to(device)
+
+		trainOrTestClassificationNeuralModel(True, trainDataLoader, neuralModel)
+		trainOrTestClassificationNeuralModel(False, testDataLoader, neuralModel)
 else:
-	def mainCustomViT():
+	def mainEndToEndNeuralModel():
+		assert classificationModelName=="VIT", "useEndToEndNeuralModel requires custom VIT"
+		
 		#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
 		trainDataLoader, testDataLoader = ATORpt_dataLoader.createDataloader()
@@ -148,8 +186,8 @@ else:
 
 		print("inputShape = ", inputShape)
 		print("patchSizeVITlocal = ", patchSizeVITlocal)
-		
-		if(useClassificationVIT):
+
+		if(useE2EclassificationVIT):
 			numberOfInputDimensionsVIT = ATORpt_E2Eoperations.getInputDim(inputShape, patchSizeVITlocal)
 			if(useParallelisedGeometricHashing):
 				numberOfHiddenDimensionsVIT = numberOfInputDimensionsVIT + numberOfGeometricDimensions2DOD   #mandatory (currently required for ATORpt_E2Eoperations.getPositionalEmbeddingsAbsolute, as no method implemented for mapping between hashing_d and numberOfHiddenDimensionsVIT)
@@ -163,32 +201,50 @@ else:
 			if(not positionalEmbeddingTransformationOnly):
 				ATORmodel = ATORpt_E2EATOR.ATORmodelClass(inputShape, ATORnumberOfPatches)
 				modelParameters = modelParameters + list(ATORmodel.parameters()) 
-		if(useClassificationSnapshots):
-			VITmodel = None
-		if(useClassificationVIT):
-			VITmodel = ATORpt_vitCustom.ViTClass(inputShape, VITnumberOfPatches, numberOfHiddenDimensionsVIT, numberOfHeadsVIT, numberOfOutputDimensions)
-			modelParameters = modelParameters + list(VITmodel.parameters()) 
+		if(useE2EclassificationSnapshots):
+			neuralModel = None
+		if(useE2EclassificationVIT):
+			neuralModel = ATORpt_classificationVITcustom.ViTClass(inputShape, VITnumberOfPatches, numberOfHiddenDimensionsVIT, numberOfHeadsVIT, numberOfOutputDimensions)
+			modelParameters = modelParameters + list(neuralModel.parameters()) 
 
-		trainOrTestCustomViT(True, trainDataLoader, ATORmodel, VITmodel, modelParameters)
-		trainOrTestCustomViT(False, testDataLoader, ATORmodel, VITmodel, modelParameters)
-
-if(useStandardVIT):
-	def trainOrTestStandardViT(train, dataLoader, VITmodel):
-		print("trainOrTestStandardViT: train = ", str(train))
+		trainOrTestEndToEndNeuralModel(True, trainDataLoader, ATORmodel, neuralModel, modelParameters)
+		trainOrTestEndToEndNeuralModel(False, testDataLoader, ATORmodel, neuralModel, modelParameters)
+		
+if(useClassificationNeuralModel):
+	def trainOrTestClassificationNeuralModel(train, dataLoader, neuralModel):
+		print("trainOrTestClassificationNeuralModel: train = ", str(train))
+		criterion = nn.CrossEntropyLoss()
 		if(train):
-			learningRate = 1e-4
-			VITmodel.train()
+			if(classificationModelNameUpper=="VIT"):
+				if(trainVITfromScratch):
+					learningRate = 1e-4
+					for param in neuralModel.parameters():
+						param.requires_grad = True
+				else:
+					learningRate = 1e-4
+					for param in neuralModel.parameters():
+						param.requires_grad = False
+					if(hasattr(neuralModel, "classifier")):
+						headParameters = neuralModel.classifier.parameters()
+					elif(hasattr(neuralModel, "classification_head")):
+						headParameters = neuralModel.classification_head.parameters()
+					else:
+						raise AttributeError("Unexpected ViT classification head attribute name")
+					for param in headParameters:
+						param.requires_grad = True
+			else:
+				learningRate = 1e-3
+				for param in neuralModel.parameters():
+					param.requires_grad = True
+			neuralModel.train()
 			desc="Train"
 			numberOfEpochs = trainNumberOfEpochs
-			# Freeze all layers except the classification head
-			for param in VITmodel.parameters():
-				param.requires_grad = False
-			for param in VITmodel.classification_head.parameters():
-				param.requires_grad = True
-			criterion = nn.CrossEntropyLoss()
-			optimizer = optim.Adam(VITmodel.parameters(), lr=learningRate)
+			trainableParameters = [param for param in neuralModel.parameters() if param.requires_grad]
+			if(len(trainableParameters) == 0):
+				trainableParameters = list(neuralModel.parameters())
+			optimizer = optim.Adam(trainableParameters, lr=learningRate)
 		else:
-			VITmodel.eval()
+			neuralModel.eval()
 			correct = 0
 			total = 0
 			desc="Test"
@@ -200,7 +256,8 @@ if(useStandardVIT):
 			correct = 0
 			total = 0
 			#print("epoch = ", epoch)
-			for batchIndex, batch in enumerate(tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False)):
+			progressBar = tqdm(dataLoader, desc=f"Epoch {epoch + 1} ({desc})", leave=False)
+			for batchIndex, batch in enumerate(progressBar):
 				if(debugVerbose):
 					print("batchIndex = ", batchIndex)
 				if(databaseName == "ALOI-VIEW"):
@@ -212,11 +269,13 @@ if(useStandardVIT):
 					imagePaths = ATORpt_dataLoader.getALOIVIEWImagePath(imageIndices, viewIndices)
 					if(debugVerbose):
 						print("imagePaths = ", imagePaths)
-				elif(databaseName == "MNIST"):
+				else:
 					x, y = batch
 					x, y = x.to(device), y.to(device)
 					imagesLarge = x
+					labels = y
 					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
+					imagePaths = [imageTensor.detach().cpu() for imageTensor in imagesLarge]
 					
 				if(useATORRFparallel):
 					transformedPatches = ATORpt_RFmainSA.generateATORpatches(support3DOD, imagePaths, train)	#normalisedsnapshots
@@ -225,26 +284,53 @@ if(useStandardVIT):
 				elif(useATORCPPserial):
 					transformedPatches = ATORpt_CPPATOR.generateATORpatches(imagePaths, train)	#normalisedsnapshots
 					transformedPatches = transformedPatches.unsqueeze(0)	#add dummy batch size dimension (size 1)
-					
-				logitsPerImage, predicted, batchTopkIndices, batchTopkCounts = forwardStandardViTOnSnapshots(VITmodel, transformedPatches)
+				
+				logitsPerImage, logitsPerSnapshot, predicted, batchTopkIndices, batchTopkCounts = ATORpt_classification.forwardClassificationNeuralModelOnSnapshots(neuralModel, transformedPatches)
 				if(isinstance(labels, pt.Tensor)):
-					if(labels.device != logitsPerImage.device):
-						labels = labels.to(logitsPerImage.device)
-					predicted = predicted.to(labels.device).detach()
+					labels = labels.to(logitsPerImage.device, non_blocking=True).long()
 				else:
-					predicted = predicted.detach()
+					labels = pt.as_tensor(labels, device=logitsPerImage.device, dtype=pt.long)
+				loss_image = criterion(logitsPerImage, labels)
+				numSnapshots = logitsPerSnapshot.shape[1]
+				labels_expanded = labels.unsqueeze(1).expand(-1, numSnapshots).reshape(-1)
+				logits_snapshot_flat = logitsPerSnapshot.reshape(-1, logitsPerSnapshot.shape[-1])
+				loss_snapshots = criterion(logits_snapshot_flat, labels_expanded)
+				if(processSnapshotLossSeparately):
+					loss = loss_snapshots
+					current_loss_value = loss_snapshots.item()
+				else:
+					loss = loss_image
+					current_loss_value = loss_image.item()
 				if(debugMajoritySnapshotClassificationVoting):
 					print("labels = ", labels)
 					print("batchTopkIndices = ", batchTopkIndices)
 					print("batchTopkCounts = ", batchTopkCounts)
+				if(isinstance(predicted, pt.Tensor)):
+					predicted = predicted.to(labels.device).detach()
+				else:
+					predicted = pt.as_tensor(predicted, device=labels.device)
 				if(train):
 					optimizer.zero_grad()
-					loss = criterion(logitsPerImage, labels)
 					loss.backward()
 					optimizer.step()
-					running_loss += loss.item()
-				total += labels.size(0)
-				correct += (predicted == labels).sum().item()
+				if(predicted.dtype != labels.dtype):
+					predicted = predicted.to(dtype=labels.dtype)
+				batch_correct = (predicted == labels).sum().item()
+				batch_total = labels.size(0)
+				batch_accuracy = (batch_correct / batch_total) if batch_total > 0 else 0.0
+				running_loss += current_loss_value
+				total += batch_total
+				correct += batch_correct
+				postfix = {
+					"loss": f"{current_loss_value:.4f}",
+					"acc": f"{batch_accuracy * 100:.2f}%"
+				}
+				if(processSnapshotLossSeparately):
+					postfix["loss_img"] = f"{loss_image.item():.4f}"
+				else:
+					postfix["loss_snap"] = f"{loss_snapshots.item():.4f}"
+				progressBar.set_postfix(**postfix)
+			progressBar.close()
 			if(train):
 				train_loss = running_loss / len(dataLoader)
 				train_acc = correct / total
@@ -253,8 +339,8 @@ if(useStandardVIT):
 			test_acc = correct / total
 			print(f'Test Accuracy: {100*test_acc:.2f}%')
 else:
-	def trainOrTestCustomViT(train, dataLoader, ATORmodel, VITmodel, modelParameters):
-		print("trainOrTestCustomViT: train = ", str(train))
+	def trainOrTestEndToEndNeuralModel(train, dataLoader, ATORmodel, neuralModel, modelParameters):
+		print("trainOrTestEndToEndNeuralModel: train = ", str(train))
 		#template: https://github.com/BrianPulfer/PapersReimplementations/blob/master/vit/vit_torch.py
 
 		if(train):
@@ -272,19 +358,17 @@ else:
 		for epoch in range(numberOfEpochs):
 			trainLoss = 0.0
 			for batch in tqdm(dataLoader, desc=f"Epoch {epoch + 1}", leave=False):
-				if(databaseName == "MNIST"):
-					x, y = batch
-					x, y = x.to(device), y.to(device)
-					imagesLarge = x
-					_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
+				x, y = batch
+				x, y = x.to(device), y.to(device)
+				imagesLarge = x
+				_, numberOfChannels, imageHeightLarge, imageWidthLarge = imagesLarge.shape
 				for r in range(0, numberOfSpatialResolutions):
-					if(databaseName == "MNIST"):
-						if(useMultipleSpatialResolutions):
-							spatialResolution = 2**r		
-							spatialResolutionTransform = T.Resize((imageHeightLarge//spatialResolution, imageWidthLarge//spatialResolution))
-							images = spatialResolutionTransform(imagesLarge)
-						else:
-							images = imagesLarge
+					if(useMultipleSpatialResolutions):
+						spatialResolution = 2**r		
+						spatialResolutionTransform = T.Resize((imageHeightLarge//spatialResolution, imageWidthLarge//spatialResolution))
+						images = spatialResolutionTransform(imagesLarge)
+					else:
+						images = imagesLarge
 
 					if(useParallelisedGeometricHashing):
 						if(positionalEmbeddingTransformationOnly):
@@ -296,12 +380,12 @@ else:
 					else:
 						posEmbeddingsAbsoluteGeoNormalised = None
 
-					if(useClassificationSnapshots):
+					if(useE2EclassificationSnapshots):
 						#recreate a 2D image from the transformed mesh before performing object recognition
 							#perform independent/parallised target prediction of object triangle data
-						print("warning: useClassificationSnapshots is incomplete")
-					elif(useClassificationVIT):
-						y_hat = VITmodel(images, posEmbeddingsAbsoluteGeoNormalised)
+						print("warning: useE2EclassificationSnapshots is incomplete")
+					elif(useE2EclassificationVIT):
+						y_hat = neuralModel(images, posEmbeddingsAbsoluteGeoNormalised)
 					if(train):
 						loss = criterion(y_hat, y) / len(x)
 						trainLoss += loss.detach().cpu().item()
@@ -319,40 +403,9 @@ else:
 			print(f"Test loss: {testLoss:.2f}")
 			print(f"Test accuracy: {correct / total * 100:.2f}%")
 
-def flattenNormalisedSnapshotBatch(transformedPatches):
-	# transformedPatches shape: batchSize, ATORmaxNumberOfPolys, C, H, W
-	batchSizeDynamic, numSnapshots, channels, height, width = transformedPatches.shape
-	vitInputs = transformedPatches.reshape(batchSizeDynamic * numSnapshots, channels, height, width)
-	if(debugVerbose):
-		print("flattenNormalisedSnapshotBatch: vitInputs.shape = ", vitInputs.shape)
-	return vitInputs, batchSizeDynamic, numSnapshots
-
-
-def extractVITLogits(vitOutputs):
-	return vitOutputs.logits if hasattr(vitOutputs, "logits") else vitOutputs
-
-
-def forwardStandardViTOnSnapshots(VITmodel, transformedPatches):
-	vitInputs, batchSizeDynamic, numSnapshots = flattenNormalisedSnapshotBatch(transformedPatches)
-	vitOutputs = VITmodel(vitInputs)
-	logits = extractVITLogits(vitOutputs)
-	logitsPerSnapshot = logits.view(batchSizeDynamic, numSnapshots, -1)
-	logitsPerImage = logitsPerSnapshot.mean(dim=1)
-	snapshotPredictions = logitsPerSnapshot.argmax(dim=2)
-	classCounts = F.one_hot(snapshotPredictions, num_classes=logitsPerSnapshot.shape[-1]).sum(dim=1).to(pt.float32)
-	topkK = 1	#min(snapshotMajorityTopK, classCounts.shape[-1])
-	if(topkK < 1):
-		raise ValueError("snapshotMajorityTopK must be >= 1 for majority voting")
-	topkCounts, topkIndices = classCounts.topk(topkK, dim=1)
-	majorityPredictions = topkIndices[:, 0]
-	if(debugVerbose):
-		print("forwardStandardViTOnSnapshots: logitsPerSnapshot.shape = ", logitsPerSnapshot.shape)
-		print("forwardStandardViTOnSnapshots: classCounts.shape = ", classCounts.shape)
-	return logitsPerImage, majorityPredictions, topkIndices, topkCounts
-
 			
 if __name__ == '__main__':
-	if(useStandardVIT):
-		mainStandardViT()
+	if(useClassificationNeuralModel):
+		mainClassificationNeuralModel()
 	else:
-		mainCustomViT()
+		mainEndToEndNeuralModel()

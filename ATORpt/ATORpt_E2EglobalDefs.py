@@ -21,8 +21,8 @@ from ATORpt_globalDefs import *
 
 
 #initialisation (dependent vars)
-useClassificationSnapshots = False	#initialise (dependent var)
-useClassificationVIT = False	#initialise (dependent var)
+useE2EclassificationSnapshots = False	#initialise (dependent var)
+useE2EclassificationVIT = False	#initialise (dependent var)
 useMultKeys = False	#initialise (dependent var)
 
 batchSize = 16 #debug: 2
@@ -33,12 +33,12 @@ useParallelisedGeometricHashing = True 	#vector transformations of all image pix
 if(useParallelisedGeometricHashing):
 	positionalEmbeddingTransformationOnly = False	#perform vit positional embedding transformation (leave feature tokens unmodified), do not apply dedicated ATOR/geometric hashing (ie if False apply dedicated ATOR/geometric hashing)
 	if(positionalEmbeddingTransformationOnly):
-		useClassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
-		useClassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
+		useE2EclassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
+		useE2EclassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
 	else:
-		#orig: useClassificationSnapshots=True, useClassificationVIT=False
-		useClassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
-		useClassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
+		#orig: useE2EclassificationSnapshots=True, useE2EclassificationVIT=False
+		useE2EclassificationSnapshots = False	#optional	#perform classification of 2D image snapshots recreated from transformed mesh coordinates - standard (see C++ ATOR implementation) #incomplete
+		useE2EclassificationVIT = True	#optional	#perform classification of transformed coordinates with a vision transformer (vit) - experimental
 
 		useGeometricHashingProbabilisticKeypoints = False   #for backprop   #else use topk  #optional
 		useGeometricHashingCNNfeatureDetector = True   #mandatory
@@ -72,7 +72,7 @@ if(useParallelisedGeometricHashing):
 else:
 	useMultKeys = True   #experimental (modify transformer to support geometric hashing operations)
 	if(useMultKeys):
-		useClassificationVIT = True
+		useE2EclassificationVIT = True
 activationMaxVal = 10.0
 multiplicativeEmulationFunctionOffsetVal = 1.0	#add/subtract
 multiplicativeEmulationFunctionPreMinVal = 1e-9

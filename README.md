@@ -12,10 +12,10 @@ Classification of normalised snapshots (transformed patches) via ViT
 
 ATORpt contains various hardware accelerated implementations of BAI ATOR (Axis Transformation Object Recognition) for PyTorch
 
-- supports classification of transformed mesh coordinates with a vision transformer (vit) - experimental
+- supports classification of transformed mesh coordinates with a neural model (eg vit) - experimental
 	- supports classification of 2D image snapshots recreated from transformed mesh coordinates
 		- perform independent, parallelised target prediction of object triangle data
-- !useEndToEndNeuralModel (useStandardVIT)
+- useClassificationNeuralModel (if classificationModelName=="VIT": useStandardVIT)
 	- useATORRFparallel
 		- uses ATOR RF to generate normalised snapshots
 	- useATORPTparallel:
@@ -49,23 +49,32 @@ Requires upgrading to support3DOD:generate3DODfromParallax
 MIT License
 
 ### Installation
+
 ```
+---
+ATORpt_globalDefs.useATORPTparallel=True: 
 conda create -n pytorch3d python=3.9
 conda activate pytorch3d
 conda install pytorch=1.13.0 torchvision pytorch-cuda=11.6 -c pytorch -c nvidia
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath
 conda install pytorch3d -c pytorch3d
+python -m pip install "numpy==1.24.4"
 pip install tqdm
-pip install transformers
+python -m pip install "transformers==4.37.0"
 pip install click
-pip install opencv-python opencv-contrib-python
+python -m pip install "opencv-python==4.7.0.72" "opencv-contrib-python==4.7.0.72"
 pip install kornia
 pip install matplotlib
-pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFdetectEllipsesSA)
+pip install git+https://github.com/facebookresearch/segment-anything.git (required for useATORPTparallel:useFeatureDetectionCentroids and ATORpt_RFmainSA)
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
+	python -m pip install --force-reinstall --no-deps "opencv-python==4.7.0.72" "opencv-contrib-python==4.7.0.72"
+	python -m pip install --force-reinstall --no-deps git+https://github.com/facebookresearch/segment-anything.git
+	python -m pip install --force-reinstall --no-deps lovely-tensors
+	python -m pip install --upgrade --force-reinstall "numpy==1.24.4"
 
 ---
+ATORpt_globalDefs.useATORRFparallel=True: 
 conda create -n sam2 python=3.12
 conda activate sam2
 pip3 install torch torchvision torchaudio
@@ -78,6 +87,8 @@ pip install matplotlib
 pip install git+https://github.com/facebookresearch/sam2.git
 pip install timm (required for useATORPTparallel:generate3DODfrom2DOD only)
 pip install lovely-tensors
+pip install accelerate
+	
 ```
 
 ### Execution

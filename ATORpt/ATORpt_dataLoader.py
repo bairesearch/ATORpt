@@ -92,10 +92,41 @@ elif(databaseName == "MNIST"):
 	from torchvision.datasets.mnist import MNIST
 
 	def createDataloader():
-		trainDataset = MNIST(root='./../datasets', train=True, download=True, transform=transforms.ToTensor())
-		testDataset = MNIST(root='./../datasets', train=False, download=True, transform=transforms.ToTensor())
+		transform = transforms.ToTensor()
+		trainDataset = MNIST(root='./../datasets', train=True, download=True, transform=transform)
+		testDataset = MNIST(root='./../datasets', train=False, download=True, transform=transform)
 		trainDataLoader = DataLoader(trainDataset, shuffle=databaseTrainShuffle, batch_size=batchSize, generator=pt.Generator(device='cuda'))
 		testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
 		return trainDataLoader, testDataLoader
-		
+elif(databaseName == "CIFAR-10"):
+	from torchvision.datasets import CIFAR10
 
+	def createDataloader():
+		transform = transforms.ToTensor()
+		trainDataset = CIFAR10(root='./../datasets', train=True, download=True, transform=transform)
+		testDataset = CIFAR10(root='./../datasets', train=False, download=True, transform=transform)
+		trainDataLoader = DataLoader(trainDataset, shuffle=databaseTrainShuffle, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		return trainDataLoader, testDataLoader
+elif(databaseName == "CIFAR-100"):
+	from torchvision.datasets import CIFAR100
+
+	def createDataloader():
+		transform = transforms.ToTensor()
+		trainDataset = CIFAR100(root='./../datasets', train=True, download=True, transform=transform)
+		testDataset = CIFAR100(root='./../datasets', train=False, download=True, transform=transform)
+		trainDataLoader = DataLoader(trainDataset, shuffle=databaseTrainShuffle, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		return trainDataLoader, testDataLoader
+elif(databaseName == "STL-10"):
+	from torchvision.datasets import STL10
+
+	def createDataloader():
+		transform = transforms.ToTensor()
+		trainDataset = STL10(root='./../datasets', split='train', download=True, transform=transform)
+		testDataset = STL10(root='./../datasets', split='test', download=True, transform=transform)
+		trainDataLoader = DataLoader(trainDataset, shuffle=databaseTrainShuffle, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		testDataLoader = DataLoader(testDataset, shuffle=False, batch_size=batchSize, generator=pt.Generator(device='cuda'))
+		return trainDataLoader, testDataLoader
+else:
+	printe("createDataloader error: unknown databaseName")
